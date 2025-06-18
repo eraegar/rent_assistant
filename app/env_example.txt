@@ -1,0 +1,11 @@
+# Токен Telegram бота (получите у @BotFather)
+BOT_TOKEN=YOUR_BOT_TOKEN_HERE
+
+# URL веб-приложения (автоматически обновляется ngrok)
+WEBAPP_URL=https://your-ngrok-url.ngrok-free.app
+
+# Секретный ключ для JWT токенов
+SECRET_KEY=your-super-secret-key-change-this-in-production
+
+# База данных (SQLite по умолчанию)
+DATABASE_URL=sqlite:///./test.db 
