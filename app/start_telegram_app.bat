@@ -14,7 +14,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo 📋 Шаг 2: Запуск FastAPI сервера...
-start "FastAPI Server" cmd /k "uvicorn main:main --reload --host 0.0.0.0 --port 8000"
+start "FastAPI Server" cmd /k "uvicorn main:app --reload --host 0.0.0.0 --port 8000"
 
 echo.
 echo ⏳ Ждем запуска сервера...
