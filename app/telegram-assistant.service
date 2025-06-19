@@ -1,0 +1,21 @@
+[Unit]
+Description=Telegram Assistant Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=forking
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/path/to/your/telegram-assistant/app
+ExecStart=/path/to/your/telegram-assistant/app/start_background.sh start
+ExecStop=/path/to/your/telegram-assistant/app/start_background.sh stop
+ExecReload=/path/to/your/telegram-assistant/app/start_background.sh restart
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=telegram-assistant
+
+[Install]
+WantedBy=multi-user.target 
