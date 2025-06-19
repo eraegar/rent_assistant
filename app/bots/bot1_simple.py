@@ -1,13 +1,17 @@
 from dotenv import load_dotenv
 import os
 import telegram
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
-load_dotenv()
+# Загружаем .env из папки bots и из корня проекта
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
+load_dotenv()  # Загружаем также корневой .env как fallback
+
 TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 
 
-def start(update, context):
+async def start(update, context):
+    print(f"🔍 DEBUG: START command received from user {update.effective_user.first_name}")
     user = update.effective_user
     welcome_text = (
         f"👋 Привет, {user.first_name}!\n\n"
@@ -18,15 +22,11 @@ def start(update, context):
     )
 
     # Получаем WebApp URL из .env файла
-    webapp_url = os.getenv("WEBAPP_URL", "https://7963-194-164-216-167.ngrok-free.app")
+    webapp_url = os.getenv("WEBAPP_URL", "https://4257-194-164-216-167.ngrok-free.app")
     
     keyboard = [
         [
             telegram.InlineKeyboardButton("🚀 Открыть приложение", url=webapp_url)
-        ],
-        [
-            telegram.InlineKeyboardButton("📋 Мои задачи", callback_data='my_tasks'),
-            telegram.InlineKeyboardButton("📊 Статистика", callback_data='stats')
         ],
         [
             telegram.InlineKeyboardButton("💡 Примеры задач", callback_data='task_examples'),
@@ -39,219 +39,208 @@ def start(update, context):
     ]
     markup = telegram.InlineKeyboardMarkup(keyboard)
     
-    update.message.reply_text(welcome_text, reply_markup=markup, parse_mode='Markdown')
+    print(f"🔍 DEBUG: Sending start message with {len(keyboard)} rows of buttons")
+    await update.message.reply_text(welcome_text, reply_markup=markup)
+    print(f"✅ DEBUG: Start message sent successfully")
 
 
-def handle_callback(update, context):
-    query = update.callback_query
-    query.answer()
-    user = update.effective_user
-
-    if query.data == 'my_tasks':
-        tasks_text = (
-            f"📋 **Ваши задачи:**\n\n"
-            f"📊 Всего: 5\n"
-            f"✅ Выполнено: 3\n"
-            f"⏳ В процессе: 2\n\n"
-            f"**Последние задачи:**\n"
-            f"✅ Расшифровка аудио\n"
-            f"⏳ Поиск информации\n"
-            f"⏳ Организация встречи\n\n"
-            f"💡 Чтобы создать новую задачу, просто отправьте мне текст!"
-        )
+async def handle_callback(update, context):
+    print(f"🔍 DEBUG: ========== CALLBACK RECEIVED ==========")
+    print(f"🔍 DEBUG: Update type: {type(update)}")
+    print(f"🔍 DEBUG: Has callback_query: {hasattr(update, 'callback_query')}")
+    
+    if not update.callback_query:
+        print("❌ DEBUG: No callback_query in update!")
+        return
         
-        webapp_url = os.getenv("WEBAPP_URL", "https://7963-194-164-216-167.ngrok-free.app")
-        keyboard = [
-            [telegram.InlineKeyboardButton("🚀 Открыть приложение", url=webapp_url)],
-            [telegram.InlineKeyboardButton("✍️ Создать задачу", callback_data='create_task')],
-            [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
-        ]
-        markup = telegram.InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(tasks_text, reply_markup=markup, parse_mode='Markdown')
-
-    elif query.data == 'stats':
-        stats_text = (
-            "📊 **Ваша статистика:**\n\n"
-            "📈 За этот месяц:\n"
-            "• Создано задач: 12\n"
-            "• Выполнено: 8\n"
-            "• Время сэкономлено: ~24 часа\n\n"
-            "💰 Эффективность:\n"
-            "• Средний рейтинг: 4.8/5\n"
-            "• Скорость выполнения: 95%\n\n"
-            "🚀 Откройте приложение для подробной аналитики!"
-        )
+    try:
+        query = update.callback_query
+        print(f"🔍 DEBUG: Callback data: '{query.data}'")
+        print(f"🔍 DEBUG: User: {query.from_user.first_name}")
+        print(f"🔍 DEBUG: Message ID: {query.message.message_id}")
         
-        webapp_url = os.getenv("WEBAPP_URL", "https://7963-194-164-216-167.ngrok-free.app")
-        keyboard = [
-            [telegram.InlineKeyboardButton("🚀 Открыть приложение", url=webapp_url)],
-            [telegram.InlineKeyboardButton("📋 Мои задачи", callback_data='my_tasks')],
-            [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
-        ]
-        markup = telegram.InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(stats_text, reply_markup=markup, parse_mode='Markdown')
-
-    elif query.data == 'pricing':
-        pricing_text = (
-            "💰 **Тарифные планы:**\n\n"
-            "🥉 **Базовый** - 15,000₽/мес\n"
-            "• 2 часа работы в день\n"
-            "• 1 задача в день\n"
-            "• Базовая аналитика\n\n"
-            "🥈 **Стандарт** - 30,000₽/мес\n"
-            "• 5 часов работы в день\n"
-            "• 3 задачи в день\n"
-            "• Приоритетная поддержка\n\n"
-            "🥇 **Премиум** - 50,000₽/мес\n"
-            "• 8 часов работы в день\n"
-            "• Неограниченно задач\n"
-            "• VIP поддержка 24/7\n\n"
-            "🚀 Выберите план в приложении!"
-        )
+        # Обязательно отвечаем на callback
+        await query.answer()
+        print(f"✅ DEBUG: Callback answered")
         
-        keyboard = [
-            [telegram.InlineKeyboardButton("📞 Связаться с поддержкой", callback_data='support')],
-            [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
-        ]
-        markup = telegram.InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(pricing_text, reply_markup=markup, parse_mode='Markdown')
-
-    elif query.data == 'task_examples':
-        examples_text = (
-            "💡 **Примеры задач для ассистента:**\n\n"
-            "📋 **Административные:**\n"
-            "• 'Найди контакты компании Tesla в России'\n"
-            "• 'Забронируй столик в ресторане на завтра на 19:00'\n"
-            "• 'Найди авиабилеты Москва-Берлин на 15 марта'\n"
-            "• 'Запиши меня к врачу на удобное время'\n\n"
-            "📊 **Аналитические:**\n"
-            "• 'Проанализируй отзывы о нашем продукте'\n"
-            "• 'Собери информацию о конкурентах в нише X'\n"
-            "• 'Составь сводку новостей за неделю по теме Y'\n\n"
-            "✍️ **Творческие:**\n"
-            "• 'Напиши пост в соцсети про наш продукт'\n"
-            "• 'Создай план презентации на 10 слайдов'\n"
-            "• 'Придумай названия для нового проекта'\n\n"
-            "🔧 **Технические:**\n"
-            "• 'Расшифруй аудиозапись встречи' (+ файл)\n"
-            "• 'Переведи документ на английский'\n"
-            "• 'Создай таблицу с данными из PDF'"
-        )
+        user = update.effective_user
         
-        webapp_url = os.getenv("WEBAPP_URL", "https://7963-194-164-216-167.ngrok-free.app")
-        keyboard = [
-            [telegram.InlineKeyboardButton("🚀 Создать задачу в приложении", url=webapp_url)],
-            [telegram.InlineKeyboardButton("✍️ Написать задачу в чат", callback_data='create_task')],
-            [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
-        ]
-        markup = telegram.InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(examples_text, reply_markup=markup, parse_mode='Markdown')
+        print(f"🔍 DEBUG: Processing callback: {query.data}")
 
-    elif query.data == 'documents':
-        documents_text = (
-            "📄 **Документы и соглашения:**\n\n"
-            "🔒 **Политика конфиденциальности**\n"
-            "Мы серьезно относимся к защите ваших персональных данных в соответствии с ФЗ-152 'О персональных данных'.\n\n"
-            "📋 **Что мы собираем:**\n"
-            "• Контактные данные (имя, телефон)\n"
-            "• Тексты задач для выполнения\n"
-            "• Статистику использования сервиса\n\n"
-            "🛡️ **Как мы защищаем:**\n"
-            "• Шифрование всех данных\n"
-            "• Доступ только уполномоченных лиц\n"
-            "• Регулярное удаление устаревших данных\n\n"
-            "❌ **Что мы НЕ делаем:**\n"
-            "• Не передаем данные третьим лицам\n"
-            "• Не используем для рекламы\n"
-            "• Не продаем ваши данные\n\n"
-            "📞 По вопросам обработки данных: privacy@assistant-for-rent.com"
-        )
-        
-        keyboard = [
-            [telegram.InlineKeyboardButton("📄 Полный текст соглашения", url="https://assistant-for-rent.com/privacy")],
-            [telegram.InlineKeyboardButton("📞 Связаться по вопросам данных", callback_data='support')],
-            [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
-        ]
-        markup = telegram.InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(documents_text, reply_markup=markup, parse_mode='Markdown')
-
-    elif query.data == 'create_task':
-        create_text = (
-            "✍️ **Создание задачи:**\n\n"
-            "📝 Просто отправьте мне сообщение с описанием задачи!\n\n"
-            "**Примеры:**\n"
-            "• 'Найди информацию о компании XYZ'\n"
-            "• 'Расшифруй аудиозапись' (+ прикрепи файл)\n"
-            "• 'Организуй встречу с клиентом на завтра'\n"
-            "• 'Переведи документ на английский'\n\n"
-            "⚡ Укажите приоритет:\n"
-            "• 'срочно' - выполним за 2-4 часа (+100%)\n"
-            "• 'быстро' - выполним за 12 часов (+50%)\n"
-            "• без пометки - выполним за 24 часа\n\n"
-            "💬 Жду ваше сообщение!"
-        )
-        
-        webapp_url = os.getenv("WEBAPP_URL", "https://7963-194-164-216-167.ngrok-free.app")
-        keyboard = [
-            [telegram.InlineKeyboardButton("🚀 Открыть приложение", url=webapp_url)],
-            [telegram.InlineKeyboardButton("📋 Мои задачи", callback_data='my_tasks')],
-            [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
-        ]
-        markup = telegram.InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(create_text, reply_markup=markup, parse_mode='Markdown')
-
-    elif query.data == 'support':
-        support_text = (
-            "📞 **Служба поддержки:**\n\n"
-            "🕐 **Время работы:**\n"
-            "Пн-Пт: 9:00 - 21:00 MSK\n"
-            "Сб-Вс: 10:00 - 18:00 MSK\n\n"
-            "📧 **Контакты:**\n"
-            "• Email: support@assistant-for-rent.com\n"
-            "• Телефон: +7 (800) 555-35-35\n"
-            "• Telegram: @assistant_support\n\n"
-            "⚡ **Быстрая помощь:**\n"
-            "Опишите вашу проблему, и мы ответим в течение 30 минут!"
-        )
-        
-        keyboard = [
-            [telegram.InlineKeyboardButton("💬 Написать в поддержку", url="https://t.me/assistant_support")],
-            [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
-        ]
-        markup = telegram.InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(support_text, reply_markup=markup, parse_mode='Markdown')
-
-    elif query.data == 'back_to_main':
-        # Возвращаемся к главному меню
-        webapp_url = os.getenv("WEBAPP_URL", "https://7963-194-164-216-167.ngrok-free.app")
-        keyboard = [
-            [
-                telegram.InlineKeyboardButton("🚀 Открыть приложение", url=webapp_url)
-            ],
-            [
-                telegram.InlineKeyboardButton("📋 Мои задачи", callback_data='my_tasks'),
-                telegram.InlineKeyboardButton("📊 Статистика", callback_data='stats')
-            ],
-            [
-                telegram.InlineKeyboardButton("💡 Примеры задач", callback_data='task_examples'),
-                telegram.InlineKeyboardButton("💰 Тарифы", callback_data='pricing')
-            ],
-            [
-                telegram.InlineKeyboardButton("📄 Документы", callback_data='documents'),
-                telegram.InlineKeyboardButton("📞 Поддержка", callback_data='support')
+        if query.data == 'pricing':
+            print("DEBUG: Processing pricing callback")
+            pricing_text = (
+                "💰 Тарифные планы:\n\n"
+                "⭐ Базовый - 15,000₽/мес\n"
+                "• 2 часа работы в день\n"
+                "• 1 задача в день\n"
+                "• Персональный ассистент\n"
+                "• Базовая аналитика\n\n"
+                "🌟 Стандартный - 25,000₽/мес\n"
+                "• 5 часов работы в день\n"
+                "• До 4 задач в день\n"
+                "• Персональный ассистент\n"
+                "• Расширенная аналитика\n\n"
+                "👑 Премиум - 35,000₽/мес\n"
+                "• 8 часов работы в день\n"
+                "• Неограниченные задачи\n"
+                "• Персональный ассистент\n"
+                "• Полная аналитика\n\n"
+                "🚀 Выберите план в приложении!"
+            )
+            
+            keyboard = [
+                [telegram.InlineKeyboardButton("📞 Связаться с поддержкой", callback_data='support')],
+                [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
             ]
-        ]
-        markup = telegram.InlineKeyboardMarkup(keyboard)
+            markup = telegram.InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(pricing_text, reply_markup=markup)
+
+        elif query.data == 'task_examples':
+            print("DEBUG: Processing task_examples callback")
+            examples_text = (
+                "💡 Примеры задач для ассистента:\n\n"
+                "🏠 Личные задачи:\n"
+                "• Заказать пиццу другу, который болеет\n"
+                "• Найти и забронировать семейный тур на выходные\n"
+                "• Выбрать подарок маме на день рождения в бюджете 5000₽\n"
+                "• Организовать сюрприз для жены - букет и доставку\n\n"
+                "💼 Бизнес-задачи:\n"
+                "• Расшифровать запись Zoom-встречи в текстовый формат\n"
+                "• Найти контакты 10 потенциальных клиентов в сфере IT\n"
+                "• Составить еженедельный отчет по продажам\n"
+                "• Запланировать встречи с клиентами на следующую неделю"
+            )
+            
+            webapp_url = os.getenv("WEBAPP_URL", "https://4257-194-164-216-167.ngrok-free.app")
+            keyboard = [
+                [telegram.InlineKeyboardButton("🚀 Создать задачу в приложении", url=webapp_url)],
+                [telegram.InlineKeyboardButton("✍️ Написать задачу в чат", callback_data='create_task')],
+                [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
+            ]
+            markup = telegram.InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(examples_text, reply_markup=markup)
+
+        elif query.data == 'documents':
+            print("DEBUG: Processing documents callback")
+            documents_text = (
+                "📄 Соглашение об обработке персональных данных\n\n"
+                "🔒 Политика конфиденциальности\n"
+                "Мы обязуемся защищать ваши персональные данные в соответствии с российским законодательством.\n\n"
+                "📋 Собираемые данные:\n"
+                "• Имя и контактная информация\n"
+                "• Текст заданий и сообщений\n"
+                "• Данные об использовании сервиса\n"
+                "• Техническая информация (IP, устройство)\n\n"
+                "🛡️ Меры защиты:\n"
+                "• SSL-шифрование при передаче\n"
+                "• Ограниченный доступ к данным\n"
+                "• Регулярная очистка устаревших данных\n"
+                "• Соответствие требованиям ФЗ-152\n\n"
+                "⚖️ Ваши права:\n"
+                "• Доступ к своим данным\n"
+                "• Исправление неточностей\n"
+                "• Удаление данных по запросу\n"
+                "• Отзыв согласия в любое время"
+            )
+            
+            keyboard = [
+                [telegram.InlineKeyboardButton("📄 Скачать полное соглашение", url="https://assistant-for-rent.com/docs/privacy.pdf")],
+                [telegram.InlineKeyboardButton("📄 Пользовательское соглашение", url="https://assistant-for-rent.com/docs/terms.pdf")],
+                [telegram.InlineKeyboardButton("📞 Связаться по вопросам данных", callback_data='support')],
+                [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
+            ]
+            markup = telegram.InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(documents_text, reply_markup=markup)
+
+        elif query.data == 'support':
+            print("DEBUG: Processing support callback")
+            support_text = (
+                "📞 Служба поддержки:\n\n"
+                "🕐 Время работы:\n"
+                "Пн-Пт: 9:00 - 21:00 MSK\n"
+                "Сб-Вс: 10:00 - 18:00 MSK\n\n"
+                "📧 Контакты:\n"
+                "• Email: support@assistant-for-rent.com\n"
+                "• Телефон: +7 (999) 999-99-99\n"
+                "• Telegram: @assistant-for-rent-support\n\n"
+                "⚡ Быстрая помощь:\n"
+                "Опишите вашу проблему, и мы ответим в течение 30 минут!"
+            )
+            
+            keyboard = [
+                [telegram.InlineKeyboardButton("💬 Написать в поддержку", url="https://t.me/assistant-for-rent-support")],
+                [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
+            ]
+            markup = telegram.InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(support_text, reply_markup=markup)
+
+        elif query.data == 'create_task':
+            print("DEBUG: Processing create_task callback")
+            create_text = (
+                "✍️ Создание задачи:\n\n"
+                "📝 Просто отправьте мне сообщение с описанием задачи!\n\n"
+                "Примеры:\n"
+                "• 'Найди информацию о компании XYZ'\n"
+                "• 'Расшифруй аудиозапись' (+ прикрепи файл)\n"
+                "• 'Организуй встречу с клиентом на завтра'\n"
+                "• 'Переведи документ на английский'\n\n"
+                "⚡ Укажите приоритет:\n"
+                "• 'срочно' - выполним за 2-4 часа (+100%)\n"
+                "• 'быстро' - выполним за 12 часов (+50%)\n"
+                "• без пометки - выполним за 24 часа\n\n"
+                "💬 Жду ваше сообщение!"
+            )
+            
+            webapp_url = os.getenv("WEBAPP_URL", "https://4257-194-164-216-167.ngrok-free.app")
+            keyboard = [
+                [telegram.InlineKeyboardButton("🚀 Открыть приложение", url=webapp_url)],
+                [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
+            ]
+            markup = telegram.InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(create_text, reply_markup=markup)
+
+        elif query.data == 'back_to_main':
+            print("DEBUG: Processing back_to_main callback")
+            # Возвращаемся к главному меню
+            webapp_url = os.getenv("WEBAPP_URL", "https://4257-194-164-216-167.ngrok-free.app")
+            keyboard = [
+                [
+                    telegram.InlineKeyboardButton("🚀 Открыть приложение", url=webapp_url)
+                ],
+                [
+                    telegram.InlineKeyboardButton("💡 Примеры задач", callback_data='task_examples'),
+                    telegram.InlineKeyboardButton("💰 Тарифы", callback_data='pricing')
+                ],
+                [
+                    telegram.InlineKeyboardButton("📄 Документы", callback_data='documents'),
+                    telegram.InlineKeyboardButton("📞 Поддержка", callback_data='support')
+                ]
+            ]
+            markup = telegram.InlineKeyboardMarkup(keyboard)
+            
+            welcome_text = (
+                f"👋 Привет, {user.first_name}!\n\n"
+                "🤖 Добро пожаловать в Assistant-for-Rent!\n\n"
+                "👇 Выберите действие:"
+            )
+            await query.edit_message_text(welcome_text, reply_markup=markup)
+        else:
+            print(f"DEBUG: Unknown callback data: {query.data}")
+            
+    except Exception as e:
+        print(f"ERROR in handle_callback: {e}")
+        import traceback
+        traceback.print_exc()
         
-        welcome_text = (
-            f"👋 Привет, {user.first_name}!\n\n"
-            "🤖 Добро пожаловать в Assistant-for-Rent!\n\n"
-            "👇 Выберите действие:"
-        )
-        query.edit_message_text(welcome_text, reply_markup=markup)
+        # Попытаемся ответить пользователю об ошибке
+        try:
+            await query.edit_message_text("❌ Произошла ошибка. Попробуйте еще раз или обратитесь в поддержку.")
+        except:
+            pass
 
 
-def handle_message(update, context):
+async def handle_message(update, context):
     """Обработка текстовых сообщений - создание задач"""
     user_message = update.message.text
     user = update.effective_user
@@ -281,17 +270,20 @@ def handle_message(update, context):
     
     keyboard = [
         [
-            telegram.InlineKeyboardButton("📋 Мои задачи", callback_data='my_tasks'),
+            telegram.InlineKeyboardButton("💡 Примеры задач", callback_data='task_examples'),
             telegram.InlineKeyboardButton("✍️ Ещё задачу", callback_data='create_task')
         ],
-        [telegram.InlineKeyboardButton("📊 Статистика", callback_data='stats')]
+        [telegram.InlineKeyboardButton("💰 Тарифы", callback_data='pricing')]
     ]
     markup = telegram.InlineKeyboardMarkup(keyboard)
     
-    update.message.reply_text(response_text, reply_markup=markup, parse_mode='Markdown')
+    await update.message.reply_text(response_text, reply_markup=markup)
 
 
 def main():
+    print(f"🔍 DEBUG: Checking TOKEN...")
+    print(f"🔍 DEBUG: BOT_TOKEN env var: {os.getenv('BOT_TOKEN', 'NOT_SET')[:10]}...")
+    
     if TOKEN == "YOUR_BOT_TOKEN_HERE":
         print("❌ Ошибка: Не установлен токен бота!")
         print("📝 Создайте файл .env с вашим токеном:")
@@ -301,17 +293,32 @@ def main():
     print(f"🤖 Starting Assistant-for-Rent Bot...")
     print(f"🔑 Token: {TOKEN[:10]}...")
     
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
+    try:
+        application = Application.builder().token(TOKEN).build()
+        print(f"✅ DEBUG: Application created successfully")
 
-    # Регистрация обработчиков
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CallbackQueryHandler(handle_callback))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+        # Регистрация обработчиков
+        start_handler = CommandHandler("start", start)
+        callback_handler = CallbackQueryHandler(handle_callback)
+        message_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
+        
+        application.add_handler(start_handler)
+        print(f"✅ DEBUG: Start handler registered")
+        
+        application.add_handler(callback_handler)
+        print(f"✅ DEBUG: Callback handler registered")
+        
+        application.add_handler(message_handler)
+        print(f"✅ DEBUG: Message handler registered")
 
-    print("🚀 Bot is running...")
-    updater.start_polling()
-    updater.idle()
+        print("🚀 Bot is running...")
+        print("✅ All handlers registered successfully")
+        print("🔍 DEBUG: Starting polling...")
+        application.run_polling()
+    except Exception as e:
+        print(f"❌ Error starting bot: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
