@@ -62,7 +62,7 @@ integration_test:
     reports:
       junit: junit/integration.xml
 
-# 4. Финальный отчёт
+# 4. Финальный отчёт
 report_summary:
   stage: report
   needs:
