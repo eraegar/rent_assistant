@@ -6,7 +6,7 @@ stages:
   - test
   - report
 
-# 1. Линтинг HTML/CSS/JS
+# 1. Линтинг HTML, CSS и JS
 lint:
   stage: lint
   image: node:18
@@ -21,20 +21,20 @@ lint:
     paths:
       - report/codequality-report.json
 
-# 2. Сборка (если нужен)
-build_snapshot:
+# 2. Сборка (build snapshot)
+build:
   stage: build
   image: node:18
   script:
     - npm ci
-    - npm run build    # соберёт в папку dist/
+    - npm run build      # собирает артефакт в dist/
   artifacts:
     name: "snapshot-$CI_COMMIT_SHORT_SHA"
     expire_in: 1 day
     paths:
       - dist/
 
-# 3a. Юнит‑тесты + покрытие (например, Jest)
+# 3a. Юнит-тесты + покрытие
 unit_test:
   stage: test
   image: node:18
@@ -62,7 +62,7 @@ integration_test:
     reports:
       junit: junit/integration.xml
 
-# 4. Финальный отчёт
+# 4. Финальный отчёт (необязательно)
 report_summary:
   stage: report
   needs:
@@ -76,4 +76,3 @@ report_summary:
     paths:
       - junit/
       - coverage/
-      - report/
