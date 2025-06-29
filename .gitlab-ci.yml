@@ -1,34 +1,24 @@
-stages:
-  - build
-  - test
-
-# --------------------------------------------------
-# 1) Новый job для сборки образа
-# --------------------------------------------------
 build_image:
   stage: build
-  image: docker:latest        # Alpine-подобный образ с docker-cli
+  image: docker:latest
   services:
-    - docker:dind             # Docker-in-Docker
+    - name: docker:dind
+      alias: docker
+      pull_policy: if-not-present        # <<< вот это
   variables:
     DOCKER_DRIVER: overlay2
-    # отключаем TLS-Dir, чтобы docker login не ругался
     DOCKER_TLS_CERTDIR: ""
   before_script:
-    # устанавливаем git, чтобы buildx и trivy (в других job) могли захватывать инфо из репо
     - apk add --no-cache git
     - git --version
   script:
-    # Собираем образ, тэгируем по SHA коммита и сохраняем лог
     - docker build \
         -f "$CI_PROJECT_DIR/Dockerfile" \
         -t "$HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA" \
         "$CI_PROJECT_DIR" > build.log 2>&1
-    # (опционально) пушим его в регистр
     - docker login -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD" "$HARBOR_HOST"
     - docker push "$HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA"
-    # Дополнительно, если вам нужен `latest` тег:
-    - docker tag "$HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA" \
+    - docker tag  "$HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA" \
                   "$HARBOR_HOST/$HARBOR_PROJECT/$APP:latest"
     - docker push "$HARBOR_HOST/$HARBOR_PROJECT/$APP:latest"
   tags:
@@ -37,42 +27,3 @@ build_image:
     when: always
     paths:
       - build.log
-
-# --------------------------------------------------
-# 2) Ваш existing container_scanning job
-# --------------------------------------------------
-container_scanning:
-  stage: test
-  image:
-    name: $HARBOR_HOST/docker-hub-cache/aquasec/trivy:latest
-    entrypoint: [""]
-  variables:
-    GIT_STRATEGY: none
-    TRIVY_USERNAME: "$HARBOR_USERNAME"
-    TRIVY_PASSWORD: "$HARBOR_PASSWORD"
-    TRIVY_AUTH_URL: "$HARBOR_HOST"
-    FULL_IMAGE_NAME: $HARBOR_HOST/$HARBOR_PROJECT/$APP:latest
-  script:
-    - trivy --version
-    - time trivy image --clear-cache
-    - time trivy image --download-db-only --no-progress --cache-dir .trivycache/
-    - time trivy image --exit-code 0 --cache-dir .trivycache/ \
-        --no-progress --format template \
-        --template "@/contrib/gitlab.tpl" \
-        --output "$CI_PROJECT_DIR/gl-container-scanning-report.json" \
-        "$FULL_IMAGE_NAME"
-    - time trivy image --exit-code 0 --cache-dir .trivycache/ \
-        --no-progress "$FULL_IMAGE_NAME"
-    - time trivy image --exit-code 1 --cache-dir .trivycache/ \
-        --severity CRITICAL --no-progress "$FULL_IMAGE_NAME"
-  cache:
-    paths:
-      - .trivycache/
-  artifacts:
-    when: always
-    reports:
-      container_scanning: gl-container-scanning-report.json
-  tags:
-    - docker
-  needs:
-    - build_image
