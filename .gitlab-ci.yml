@@ -22,7 +22,7 @@ lint:
       - report/codequality-report.json
 
 # 2. Сборка (build snapshot)
-build:
+build_snapshot:
   stage: build
   image: node:18
   script:
@@ -34,7 +34,7 @@ build:
     paths:
       - dist/
 
-# 3a. Юнит-тесты + покрытие
+# 3a. Юнит-тесты + покрытие (например, Jest)
 unit_test:
   stage: test
   image: node:18
