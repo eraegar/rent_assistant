@@ -1,10 +1,47 @@
-
 stages:
   - build
   - test
 
-# EXISTING PARTS OF YOUR FILE
+# --------------------------------------------------
+# 1) Новый job для сборки образа
+# --------------------------------------------------
+build_image:
+  stage: build
+  image: docker:latest        # Alpine-подобный образ с docker-cli
+  services:
+    - docker:dind             # Docker-in-Docker
+  variables:
+    DOCKER_DRIVER: overlay2
+    # отключаем TLS-Dir, чтобы docker login не ругался
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    # устанавливаем git, чтобы buildx и trivy (в других job) могли захватывать инфо из репо
+    - apk add --no-cache git
+    - git --version
+  script:
+    # Собираем образ, тэгируем по SHA коммита
+    - docker build \
+        -f $CI_PROJECT_DIR/Dockerfile \
+        -t $HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA \
+        $CI_PROJECT_DIR
+    # (опционально) пушим его в регистр
+    - docker login -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD" $HARBOR_HOST
+    - docker push $HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA
+    # Дополнительно, если вам нужен `latest` тег:
+    - docker tag $HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA \
+                  $HARBOR_HOST/$HARBOR_PROJECT/$APP:latest
+    - docker push $HARBOR_HOST/$HARBOR_PROJECT/$APP:latest
+  tags:
+    - docker
+  artifacts:
+    # сохраняем логи сборки (опционально)
+    when: always
+    paths:
+      - build.log
 
+# --------------------------------------------------
+# 2) Ваш existing container_scanning job
+# --------------------------------------------------
 container_scanning:
   stage: test
   image:
@@ -20,9 +57,15 @@ container_scanning:
     - trivy --version
     - time trivy image --clear-cache
     - time trivy image --download-db-only --no-progress --cache-dir .trivycache/
-    - time trivy image --exit-code 0 --cache-dir .trivycache/ --no-progress --format template --template "@/contrib/gitlab.tpl" --output "$CI_PROJECT_DIR/gl-container-scanning-report.json" "$FULL_IMAGE_NAME"
-    - time trivy image --exit-code 0 --cache-dir .trivycache/ --no-progress "$FULL_IMAGE_NAME"
-    - time trivy image --exit-code 1 --cache-dir .trivycache/ --severity CRITICAL --no-progress "$FULL_IMAGE_NAME"
+    - time trivy image --exit-code 0 --cache-dir .trivycache/ \
+        --no-progress --format template \
+        --template "@/contrib/gitlab.tpl" \
+        --output "$CI_PROJECT_DIR/gl-container-scanning-report.json" \
+        "$FULL_IMAGE_NAME"
+    - time trivy image --exit-code 0 --cache-dir .trivycache/ \
+        --no-progress "$FULL_IMAGE_NAME"
+    - time trivy image --exit-code 1 --cache-dir .trivycache/ \
+        --severity CRITICAL --no-progress "$FULL_IMAGE_NAME"
   cache:
     paths:
       - .trivycache/
@@ -33,4 +76,4 @@ container_scanning:
   tags:
     - docker
   needs:
-    - build
+    - build_image
