@@ -1,12 +1,11 @@
+```yaml
+# .gitlab-ci.yml
+
 stages:
   - lint
   - build
   - test
   - report
-
-variables:
-  # regexp чтобы GitLab вытягивал проценты покрытия
-  COVERAGE_REGEX: '/All files[^|]*\|[^|]*\s+([\d\.]+)\%/'
 
 # 1. Линтинг HTML/CSS/JS
 lint:
@@ -36,7 +35,7 @@ build_snapshot:
     paths:
       - dist/
 
-# 3a. Юнит‑тесты + покрытие (например, jest)
+# 3a. Юнит‑тесты + покрытие (например, Jest)
 unit_test:
   stage: test
   image: node:18
@@ -51,7 +50,8 @@ unit_test:
         path: coverage/cobertura-coverage.xml
     paths:
       - coverage/
-  coverage: "$COVERAGE_REGEX"
+  # Указываем регулярное выражение прямо без переменных
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)%/'
 
 # 3b. Интеграционные тесты
 integration_test:
@@ -64,7 +64,7 @@ integration_test:
     reports:
       junit: junit/integration.xml
 
-# 4. Отчёты
+# 4. Финальный отчёт
 report_summary:
   stage: report
   needs:
@@ -79,3 +79,4 @@ report_summary:
       - junit/
       - coverage/
       - report/
+```
