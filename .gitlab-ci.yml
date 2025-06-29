@@ -22,7 +22,7 @@ lint:
       - report/codequality-report.json
 
 # 2. Сборка (build snapshot)
-build:
+build_snapshot:
   stage: build
   image: node:18
   script:
