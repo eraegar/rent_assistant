@@ -1,9 +1,9 @@
-stages:
-  - build
-
 variables:
   DOCKER_TLS_CERTDIR: "/certs"
   APP: "my-app"
+
+stages:
+  - build
 
 build:
   stage: build
@@ -12,7 +12,7 @@ build:
     - docker:24.0.5-dind
   before_script:
     - docker info
-    - echo "wtoKSO8blMv32XFOzYxal304rIZrjdbJ" | docker login -u ""robot$demo_docker_ci3+demo_docker_ci"" "$HARBOR_HOST" --password-stdin
+    - echo "$HARBOR_PASSWORD" | docker login -u "$HARBOR_USERNAME" "$HARBOR_HOST" --password-stdin
   script:
     - docker build -t my-docker-image .
     - docker tag my-docker-image $HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_JOB_ID
