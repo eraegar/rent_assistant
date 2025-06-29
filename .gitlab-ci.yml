@@ -19,22 +19,21 @@ build_image:
     - apk add --no-cache git
     - git --version
   script:
-    # Собираем образ, тэгируем по SHA коммита
+    # Собираем образ, тэгируем по SHA коммита и сохраняем лог
     - docker build \
-        -f $CI_PROJECT_DIR/Dockerfile \
-        -t $HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA \
-        $CI_PROJECT_DIR
+        -f "$CI_PROJECT_DIR/Dockerfile" \
+        -t "$HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA" \
+        "$CI_PROJECT_DIR" > build.log 2>&1
     # (опционально) пушим его в регистр
-    - docker login -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD" $HARBOR_HOST
-    - docker push $HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA
+    - docker login -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD" "$HARBOR_HOST"
+    - docker push "$HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA"
     # Дополнительно, если вам нужен `latest` тег:
-    - docker tag $HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA \
-                  $HARBOR_HOST/$HARBOR_PROJECT/$APP:latest
-    - docker push $HARBOR_HOST/$HARBOR_PROJECT/$APP:latest
+    - docker tag "$HARBOR_HOST/$HARBOR_PROJECT/$APP:$CI_COMMIT_SHORT_SHA" \
+                  "$HARBOR_HOST/$HARBOR_PROJECT/$APP:latest"
+    - docker push "$HARBOR_HOST/$HARBOR_PROJECT/$APP:latest"
   tags:
     - docker
   artifacts:
-    # сохраняем логи сборки (опционально)
     when: always
     paths:
       - build.log
