@@ -1,0 +1,81 @@
+stages:
+  - lint
+  - build
+  - test
+  - report
+
+variables:
+  # regexp чтобы GitLab вытягивал проценты покрытия
+  COVERAGE_REGEX: '/All files[^|]*\|[^|]*\s+([\d\.]+)\%/'
+
+# 1. Линтинг HTML/CSS/JS
+lint:
+  stage: lint
+  image: node:18
+  script:
+    - npm ci
+    - npx htmlhint "**/*.html"
+    - npx stylelint "**/*.css"
+    - npx eslint "**/*.js"
+  artifacts:
+    reports:
+      codequality: report/codequality-report.json
+    paths:
+      - report/codequality-report.json
+
+# 2. Сборка (если нужен)
+build_snapshot:
+  stage: build
+  image: node:18
+  script:
+    - npm ci
+    - npm run build    # соберёт в папку dist/
+  artifacts:
+    name: "snapshot-$CI_COMMIT_SHORT_SHA"
+    expire_in: 1 day
+    paths:
+      - dist/
+
+# 3a. Юнит‑тесты + покрытие (например, jest)
+unit_test:
+  stage: test
+  image: node:18
+  script:
+    - npm ci
+    - npm run test:unit -- --coverage --coverageReporters=cobertura
+  artifacts:
+    reports:
+      junit: junit/unit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+    paths:
+      - coverage/
+  coverage: "$COVERAGE_REGEX"
+
+# 3b. Интеграционные тесты
+integration_test:
+  stage: test
+  image: node:18
+  script:
+    - npm ci
+    - npm run test:integration -- --reporter mocha-junit-reporter --reporter-options mochaFile=junit/integration.xml
+  artifacts:
+    reports:
+      junit: junit/integration.xml
+
+# 4. Отчёты
+report_summary:
+  stage: report
+  needs:
+    - lint
+    - unit_test
+    - integration_test
+  script:
+    - echo "Все проверки пройдены"
+  artifacts:
+    when: always
+    paths:
+      - junit/
+      - coverage/
+      - report/
