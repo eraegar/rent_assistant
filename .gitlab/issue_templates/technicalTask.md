@@ -6,16 +6,16 @@ labels: ["technical"]
 assignees: ""
 ---
 
-## Описание задачи
+## Description of the task
 [description of tech task in details]
 
-## Подзадачи
+## Subtasks
 - [ ] subtask 1 (#link_to_subtask)
 - [ ] subtask 2
 - [ ] subtask 3
 
-## Требования
+## Requirements
 [Any specific technical requirements]
 
-## Дополнительная информация
+## Additional information
 [links to documentation, schemes and etc.]
