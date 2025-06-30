@@ -1,16 +1,16 @@
 ---
 name: User Story
-description: Создайте новую пользовательскую историю с критериями приемки
-title: "User Story: [краткое описание]"
+description: create new user story with acceptance criteria
+title: "User Story: [short description]"
 labels: ["user story"]
 assignees: ""
 ---
 
-## Описание
-Как [роль], я хочу [функциональность], чтобы [получить пользу].
+## description
+as [role], I want [functionality], so that [get benefits].
 
-## Критерии приемки (GIVEN/WHEN/THEN)
+## acceptance criteria (GIVEN/WHEN/THEN)
 ```markdown
-- GIVEN [контекст/начальное состояние],
-  WHEN [действие/событие],
-  THEN [ожидаемый результат].
+- GIVEN [context/initial state],
+  WHEN [action/event],
+  THEN [expected result].
