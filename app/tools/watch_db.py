@@ -12,13 +12,11 @@ import sys
 from datetime import datetime, timedelta
 
 def get_db_path():
-    """Get the correct path to the database file"""
-    # If we're in tools/ directory, go up one level
+    """Get the correct path to the database file (root/test.db)"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    if current_dir.endswith('tools'):
-        return os.path.join(current_dir, '..', 'test.db')
-    else:
-        return 'test.db'
+    # database is stored in project root/test.db
+    project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
+    return os.path.join(project_root, 'test.db')
 
 def get_db_stats():
     """Get comprehensive database statistics"""

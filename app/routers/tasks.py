@@ -25,8 +25,8 @@ ASSISTANTS = [
 def get_tasks(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    status: Optional[schemas.TaskStatusEnum] = None,
-    type: Optional[schemas.TaskTypeEnum] = None,
+    status: Optional[schemas.TaskStatus] = None,
+    type: Optional[schemas.TaskType] = None,
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):

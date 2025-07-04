@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import requests
 import json
 
@@ -5,7 +7,7 @@ import json
 url = "http://127.0.0.1:8000/auth/register"
 
 test_data = {
-    "phone": "+7999123456",
+    "phone": "+7900555555",
     "name": "Новый Тест",
     "password": "testpass123"
 }
@@ -40,4 +42,20 @@ try:
     else:
         print("❌ OLD endpoint still works (unexpected)")
 except Exception as e:
-    print(f"OLD endpoint error: {e}") 
+    print(f"OLD endpoint error: {e}")
+
+# Test assistant registration
+assistant_data = {
+    "name": "Анна Тестовая",
+    "phone": "+7900555555", 
+    "email": "anna.test@example.com",
+    "password": "testpass123",
+    "specialization": "personal_only",
+    "telegram_username": "@anna_test"
+}
+
+# Test assistant login  
+login_data = {
+    "phone": "+7900555555",
+    "password": "testpass123"
+} 
