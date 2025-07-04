@@ -1,0 +1,30 @@
+[flake8]
+# Максимальная длина строки
+max-line-length = 88
+
+# Игнорируемые ошибки
+ignore = 
+    E203,  # whitespace before ':'
+    E501,  # line too long (handled by black)
+    W503,  # line break before binary operator
+    F401,  # imported but unused (может быть полезно для __init__.py)
+
+# Исключаемые директории
+exclude = 
+    .git,
+    __pycache__,
+    .pytest_cache,
+    .coverage,
+    *.egg-info,
+    build,
+    dist,
+    .venv,
+    venv,
+    migrations
+
+# Максимальная сложность кода
+max-complexity = 10
+
+# Файлы для статистики
+statistics = True
+count = True 
