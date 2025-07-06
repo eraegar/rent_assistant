@@ -135,8 +135,6 @@ A comprehensive solution for managing rental properties through Telegram integra
 
 ### Continuous Integration
 
-**CI Pipeline**: [GitLab CI/CD](/.gitlab-ci.yml)
-
 **Workflow Files**:
 - [Main CI Pipeline](/.gitlab-ci.yml) - Main build and test pipeline
 
@@ -151,8 +149,6 @@ A comprehensive solution for managing rental properties through Telegram integra
 - **pytest**: Python backend testing with coverage reporting
 - **Jest**: JavaScript frontend unit testing
 - **Cypress**: End-to-end testing in headless mode
-
-**CI Workflow Runs**: [Pipeline History](https://gitlab.pg.innopolis.university/d.agafonov/assistant-for-rent-project/-/pipelines)
 
 ### Continuous Deployment
 
@@ -223,7 +219,7 @@ A comprehensive solution for managing rental properties through Telegram integra
 
 The system follows a microservices architecture with clear separation of concerns:
 
-![Component Diagram](docs/architecture/static-view/component-diagram.png)
+![Component Diagram](Architecture/static-view/component-diagram.png)
 
 **Components**:
 - **Backend API**: FastAPI-based REST API handling business logic
