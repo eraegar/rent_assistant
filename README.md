@@ -54,9 +54,10 @@ A comprehensive solution for managing rental properties through Telegram integra
 
 2. **Labelling Issues**:
    - `bug` - for bug reports
-   - `enhancement` - for new features
-   - `documentation` - for documentation updates
-   - `priority::high/medium/low` - for prioritization
+   - `technical` - for new features
+   - `Non code task` - for anther updates
+   - `user story` - for user stories
+   - `priority::critical/high/medium/low` - for prioritization
    - `frontend/backend/telegram-bot` - for component identification
 
 3. **Assigning Issues**:
@@ -76,7 +77,7 @@ A comprehensive solution for managing rental properties through Telegram integra
 
 6. **Pull Requests**:
    - Use [PR template](/.gitlab/merge_request_templates/default.md)
-   - Link to related issue
+   - Link to related [issue](https://gitlab.pg.innopolis.university/d.agafonov/assistant-for-rent-project/-/merge_requests/1)
    - Include testing instructions
    - Require at least one review before merge
 
