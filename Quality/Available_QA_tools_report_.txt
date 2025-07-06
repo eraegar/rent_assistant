@@ -1,0 +1,27 @@
+At this stage of testing our project, we have chosen a two-tier strategy: unit tests and integration tests. For the tests, Python scripts were used using various tools.  
+Unit testing  
+Python scripts are used to test isolated modules, covering the main functions of the project. API verification is performed using Ngrok.
+Tools for testing individual components:
+1. Unittest
+2. Requests
+3. Ngrok
+4. Pytest
+5. Pytest-asyncio
+6. FastAPI TestClient
+7. HTTPx
+The tests cover key logic: processing bot commands, data validation, and the operation of utility functions. Using the Python stack ensures high execution speed and ease of integration into CI/CD.
+
+Comprehensive Final Test Suite
+A comprehensive test file (test_telegram_assistant_final.py) has been developed that includes 35+ test cases covering the entire system. This test suite validates authentication, task management, analytics, assistant assignment, error handling, database operations, and performance metrics. The test uses modern async testing with MongoDB integration and automatic data cleanup.
+
+Integration testing  
+Tools for checking the interaction of components:  
+1. Asyncio 
+2. Ngrok
+3. Requests
+4. SQLite
+5. MongoDB
+6. Beanie ODM
+The listed tools are used to check the interaction of various modules of the service. The tests provide a complete verification cycle: from the correctness of individual modules to end-to-end user scenarios.  
+This stack was chosen for testing because it provides fast test execution, as well as ease and convenience of use. The seamless integration of tools into the project has become another indicator of the right choice of tools.
+At this stage of development, our team does not require such powerful tools as Botium, Selenium, Docker, Playwright, WireMock and others used in large projects. We decided to use such a stack of tools, as we strive for simplicity and speed of tests, and powerful and complex tools require long configuration and integration into the project. We will need them at later stages of development.
