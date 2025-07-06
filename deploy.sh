@@ -20,7 +20,7 @@ error() {
 }
 
 # Переходим в рабочую директорию
-cd /root/project/App
+cd /root/project/assistant-for-rent/App
 
 log "Начинаю развертывание Telegram Assistant на продакшн сервере..."
 
@@ -72,7 +72,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/project/App/Backend
+WorkingDirectory=/root/project/assistant-for-rent/App/Backend
 Environment=PATH=/usr/bin:/usr/local/bin
 ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
 Restart=always
@@ -91,7 +91,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/project/App/Frontend/client-app
+WorkingDirectory=/root/project/assistant-for-rent/App/Frontend/client-app
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/local/lib/nodejs/bin
 Environment=NODE_ENV=production
 Environment=PORT=3000
@@ -112,7 +112,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/project/App/Frontend/manager-app
+WorkingDirectory=/root/project/assistant-for-rent/App/Frontend/manager-app
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/local/lib/nodejs/bin
 Environment=NODE_ENV=production
 Environment=PORT=3001
@@ -133,7 +133,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/project/App/Frontend/assistant-app
+WorkingDirectory=/root/project/assistant-for-rent/App/Frontend/assistant-app
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/local/lib/nodejs/bin
 Environment=NODE_ENV=production
 Environment=PORT=3002
@@ -154,7 +154,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/project/App
+WorkingDirectory=/root/project/assistant-for-rent/App
 ExecStart=/usr/local/bin/cloudflared tunnel --config cloudflared-config.yml run
 Restart=always
 RestartSec=10
