@@ -1,0 +1,24 @@
+tunnel: rent-assistant-tunnel
+credentials-file: /home/telegram-assistant/.cloudflared/TUNNEL_ID.json
+
+ingress:
+  # Основное клиентское приложение
+  - hostname: rent-assistant.ru
+    service: http://localhost:3000
+  - hostname: client.rent-assistant.ru
+    service: http://localhost:3000
+    
+  # Панель менеджера (скрытая)
+  - hostname: manager.rent-assistant.ru
+    service: http://localhost:3001
+    
+  # Панель ассистента (скрытая)
+  - hostname: assistant.rent-assistant.ru
+    service: http://localhost:3002
+    
+  # Backend API
+  - hostname: api.rent-assistant.ru
+    service: http://localhost:8000
+    
+  # Catch-all - все остальные запросы на основное приложение
+  - service: http://localhost:3000 
