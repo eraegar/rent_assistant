@@ -184,34 +184,30 @@ A comprehensive solution for managing rental properties through Telegram integra
 **Test**: [Reliability Test](tests/quality/reliability_test.py)
 
 ### Performance Efficiency
-
 #### Time Behavior
-**Importance**: Fast response times are crucial for user experience in real-time property management scenarios.
+Importance: Ensures responsive user experience during peak usage when multiple users simultaneously access web applications. Critical for user retention in property management scenarios.
 
-**Quality Attribute Scenario**:
-- **Source**: Property manager
-- **Stimulus**: Requests property listing data
-- **Artifact**: Complete system (Backend + Frontend + Database)
-- **Environment**: Production environment with 100 concurrent users
-- **Response**: System returns property data
-- **Response Measure**: 95% of requests complete within 2 seconds
-
-**Test**: [Performance Test](tests/quality/performance_test.py)
+Quality Attribute Scenario:
+- Source: Multiple simultaneous users accessing Assisted-for-vert web apps
+- Stimulus: High volume of task creation requests during peak hours
+- Artifact: Task creation service
+- Environment: Production environment during high-usage periods
+- Response: System processes requests with minimal delay
+- Response Measure: Average response time ≤ 3 seconds with 100+ concurrent users
+- Test: [Performance Test](Quality/performance_test.py)
 
 ### Security
-
 #### Confidentiality
-**Importance**: Protecting sensitive property and tenant information is legally required and builds trust.
+Importance: Protects sensitive user data (phone numbers, payment plans, emails) and prevents unauthorized account access. Essential for legal compliance and user trust.
 
-**Quality Attribute Scenario**:
-- **Source**: Unauthorized user
-- **Stimulus**: Attempts to access tenant personal information
-- **Artifact**: Backend API authentication system
-- **Environment**: Production environment
-- **Response**: System denies access and logs attempt
-- **Response Measure**: 100% of unauthorized access attempts are blocked within 1 second
-
-**Test**: [Security Test](tests/quality/security_test.py)
+Quality Attribute Scenario:
+- Source: Unauthorized user attempting access
+- Stimulus: Attempt to access private account data
+- Artifact: Authentication/authorization system
+- Environment: Production during registration/authentication
+- Response: System blocks access and logs attempt
+- Response Measure: 100% unauthorized access blocked within 1 second
+- Test: [Security Test](Quality/security_test.py)
 
 ## Architecture
 
@@ -314,8 +310,4 @@ The following sequence diagram shows the property creation workflow:
 
 - **Browser**: Modern web browser with JavaScript enabled
 - **Internet Connection**: Required for all features
-- **Telegram Account**: Optional, for notifications and bot interactions
-
-### Support
-
-For technical issues or questions, please create an issue in the GitLab repository or contact the development team. 
+- **Telegram Account**: Optional, for bot interactions 
