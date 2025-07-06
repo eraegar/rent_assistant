@@ -181,20 +181,23 @@ A comprehensive solution for managing rental properties through Telegram integra
 - **Response**: System continues to serve cached data and queues write operations
 - **Response Measure**: System maintains 99% uptime with <5 second recovery time
 
-**Test**: [Reliability Test](tests/quality/reliability_test.py)
+**Test**: [Reliability Test](Quality/reliability_test.py)
 
 ### Performance Efficiency
-#### Time Behavior
-Importance: Ensures responsive user experience during peak usage when multiple users simultaneously access web applications. Critical for user retention in property management scenarios.
 
-Quality Attribute Scenario:
-- Source: Multiple simultaneous users accessing Assisted-for-vert web apps
-- Stimulus: High volume of task creation requests during peak hours
-- Artifact: Task creation service
-- Environment: Production environment during high-usage periods
-- Response: System processes requests with minimal delay
-- Response Measure: Average response time ≤ 3 seconds with 100+ concurrent users
-- Test: [Performance Test](Quality/performance_test.py)
+#### Time Behavior
+
+**mportance**: Ensures responsive user experience during peak usage when multiple users simultaneously access web applications. Critical for user retention in property management scenarios.
+
+**Quality Attribute Scenario**:
+- **Source**: Multiple simultaneous users accessing Assisted-for-vert web apps
+- **Stimulus**: High volume of task creation requests during peak hours
+- **Artifact**: Task creation service
+- **Environment**: Production environment during high-usage periods
+- **Response**: System processes requests with minimal delay
+- **Response Measure**: Average response time ≤ 3 seconds with 100+ concurrent users
+
+**Test**: [Performance Test](Quality/performance_test.py)
 
 ### Security
 #### Confidentiality
