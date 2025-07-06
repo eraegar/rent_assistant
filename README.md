@@ -113,29 +113,23 @@ A comprehensive solution for managing rental properties through Telegram integra
 ### Automated tests
 
 **Testing Tools**:
-- **Python Backend**: pytest for unit and integration tests
-- **JavaScript Frontend**: Jest and React Testing Library
+- **Python Backend and JavaScript Frontend**: pytest and Jest and React Testing Library for unit and integration tests
 - **End-to-End**: Cypress for full application testing
 
 **Test Types Implemented**:
 
 1. **Unit Tests**:
-   - Location: `App/Backend/tests/`
+   - Location: `Quality/Unit tests/`
    - Coverage: API endpoints, business logic, database operations
    - Tool: pytest
 
 2. **Integration Tests**:
-   - Location: `App/Backend/tests/integration/`
-   - Coverage: API integration, database transactions
-   - Tool: pytest with test database
+   - Location: `Quality/Integration tests/`
+   - Coverage: API integration, database transactions, component rendering, user interactions
+   - Tool: pytest with test database, Jest + React Testing Library
 
-3. **Frontend Tests**:
-   - Location: `App/Frontend/*/src/__tests__/`
-   - Coverage: Component rendering, user interactions
-   - Tool: Jest + React Testing Library
-
-4. **End-to-End Tests**:
-   - Location: `App/tests/e2e/`
+3. **End-to-End Tests**:
+   - Location: `Quality/E2E test/`
    - Coverage: Complete user workflows
    - Tool: Cypress
 
