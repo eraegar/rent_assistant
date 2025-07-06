@@ -237,7 +237,7 @@ The system follows a microservices architecture with clear separation of concern
 
 The following sequence diagram shows the property creation workflow:
 
-![Sequence Diagram](docs/architecture/dynamic-view/property-creation-sequence.png)
+![Sequence Diagram](Architecture/dynamic-view/property-creation-sequence.png)
 
 **Scenario**: Manager creates a new property listing
 1. Manager authenticates through Frontend
@@ -251,7 +251,7 @@ The following sequence diagram shows the property creation workflow:
 
 ### Deployment view
 
-![Deployment Diagram](docs/architecture/deployment-view/deployment-diagram.png)
+![Deployment Diagram](Architecture/deployment-view/deployment-diagram.png)
 
 **Deployment Architecture**:
 - **Ubuntu Server**: Hosts all application components
