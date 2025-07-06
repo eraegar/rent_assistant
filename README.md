@@ -16,7 +16,7 @@ A comprehensive solution for managing rental properties through Telegram integra
 
 **Column Entry Criteria**:
 
-- **Backlog**: 
+- **Open**: 
   - New issues created from templates
   - Issues must have clear acceptance criteria
   - Must be labeled with appropriate priority and type
