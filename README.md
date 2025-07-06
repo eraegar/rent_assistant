@@ -58,7 +58,6 @@ A comprehensive solution for managing rental properties through Telegram integra
    - `Non code task` - for anther updates
    - `user story` - for user stories
    - `priority::critical/high/medium/low` - for prioritization
-   - `frontend/backend/telegram-bot` - for component identification
 
 3. **Assigning Issues**:
    - Issues assigned during sprint planning
