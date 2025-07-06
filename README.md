@@ -75,7 +75,7 @@ A comprehensive solution for managing rental properties through Telegram integra
    - Example: `feat(backend): add user authentication endpoint`
 
 6. **Pull Requests**:
-   - Use [PR template](/.gitlab/merge_request_templates/Default.md)
+   - Use [PR template](/.gitlab/merge_request_templates/default.md)
    - Link to related issue
    - Include testing instructions
    - Require at least one review before merge
