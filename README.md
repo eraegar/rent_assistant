@@ -48,7 +48,7 @@ A comprehensive solution for managing rental properties through Telegram integra
 **Workflow Rules**:
 
 1. **Creating Issues**:
-   - Use predefined templates: [Bug Report](/.gitlab/issue_templates/bugReportTemplate.md), [User story](/.gitlab/issue_templates/userStoryTemplate.md) , [Non code] (/.gitlab/issue_templates/non_code_task.md) , [Technical tasks] (/.gitlab/issue_templates/technicalTask.md)
+   - Use predefined templates: [Bug Report](/.gitlab/issue_templates/bugReportTemplate.md), [User story](/.gitlab/issue_templates/userStoryTemplate.md) , [Non code](/.gitlab/issue_templates/non_code_task.md) , [Technical tasks](/.gitlab/issue_templates/technicalTask.md)
    - All issues must have clear title and description
    - Include acceptance criteria for features
 
