@@ -21,9 +21,11 @@ import {
   VisibilityOff,
   Login,
   PersonAdd,
+  AlternateEmail,
 } from '@mui/icons-material';
 import { useAuthStore } from '../stores/useAuthStore';
 import { EnhancedPaper, clientGradients } from '../styles/gradients';
+import { formatPhoneNumber, getCleanPhoneNumber, isValidPhoneNumber } from '../utils/phoneFormatter';
 
 // Styled components for enhanced design
 const WelcomeContainer = styled(Box)(({ theme }) => ({
@@ -60,7 +62,12 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
 const WelcomeScreen: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [loginData, setLoginData] = useState({ phone: '', password: '' });
-  const [registerData, setRegisterData] = useState({ name: '', phone: '', password: '' });
+  const [registerData, setRegisterData] = useState({ 
+    name: '', 
+    phone: '', 
+    password: '', 
+    telegram_username: '' 
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -72,13 +79,30 @@ const WelcomeScreen: React.FC = () => {
     setError(null);
   };
 
+  const handlePhoneChange = (value: string, isLogin: boolean) => {
+    const formatted = formatPhoneNumber(value);
+    if (isLogin) {
+      setLoginData({ ...loginData, phone: formatted });
+    } else {
+      setRegisterData({ ...registerData, phone: formatted });
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
+    // Валидация номера телефона
+    if (!isValidPhoneNumber(loginData.phone)) {
+      setError('Пожалуйста, введите корректный номер телефона');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const success = await login(loginData.phone, loginData.password);
+      const cleanPhone = getCleanPhoneNumber(loginData.phone);
+      const success = await login(cleanPhone, loginData.password);
       if (!success) {
         setError('Неверный телефон или пароль');
       }
@@ -94,8 +118,43 @@ const WelcomeScreen: React.FC = () => {
     setLoading(true);
     setError(null);
 
+    // Валидация номера телефона
+    if (!isValidPhoneNumber(registerData.phone)) {
+      setError('Пожалуйста, введите корректный номер телефона');
+      setLoading(false);
+      return;
+    }
+
+    // Валидация Telegram алиаса
+    if (!registerData.telegram_username.trim()) {
+      setError('Пожалуйста, введите ваш Telegram алиас');
+      setLoading(false);
+      return;
+    }
+
+    // Проверяем формат Telegram алиаса
+    const telegramRegex = /^@?[a-zA-Z0-9_]{5,32}$/;
+    let telegramAlias = registerData.telegram_username.trim();
+    
+    // Добавляем @ если его нет
+    if (!telegramAlias.startsWith('@')) {
+      telegramAlias = '@' + telegramAlias;
+    }
+    
+    if (!telegramRegex.test(telegramAlias)) {
+      setError('Telegram алиас должен содержать 5-32 символа (латинские буквы, цифры, подчеркивание)');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const success = await register(registerData.name, registerData.phone, registerData.password);
+      const cleanPhone = getCleanPhoneNumber(registerData.phone);
+      const success = await register(
+        registerData.name, 
+        cleanPhone, 
+        registerData.password,
+        telegramAlias
+      );
       if (!success) {
         setError('Ошибка регистрации. Возможно, этот номер уже зарегистрирован');
       }
@@ -158,8 +217,10 @@ const WelcomeScreen: React.FC = () => {
                 variant="outlined"
                 margin="normal"
                 value={loginData.phone}
-                onChange={(e) => setLoginData({ ...loginData, phone: e.target.value })}
+                onChange={(e) => handlePhoneChange(e.target.value, true)}
                 placeholder="+7 (900) 123-45-67"
+                helperText={loginData.phone && !isValidPhoneNumber(loginData.phone) ? "Введите корректный номер телефона" : ""}
+                error={loginData.phone !== '' && !isValidPhoneNumber(loginData.phone)}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -201,7 +262,7 @@ const WelcomeScreen: React.FC = () => {
                 fullWidth
                 variant="contained"
                 size="large"
-                disabled={loading || !loginData.phone || !loginData.password}
+                disabled={loading || !loginData.phone || !loginData.password || !isValidPhoneNumber(loginData.phone)}
                 startIcon={loading ? <CircularProgress size={20} /> : <Login />}
                 sx={{
                   py: 1.5,
@@ -244,12 +305,33 @@ const WelcomeScreen: React.FC = () => {
                 variant="outlined"
                 margin="normal"
                 value={registerData.phone}
-                onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
+                onChange={(e) => handlePhoneChange(e.target.value, false)}
                 placeholder="+7 (900) 123-45-67"
+                helperText={registerData.phone && !isValidPhoneNumber(registerData.phone) ? "Введите корректный номер телефона" : ""}
+                error={registerData.phone !== '' && !isValidPhoneNumber(registerData.phone)}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
                       <Phone color="primary" />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                required
+                label="Telegram алиас"
+                variant="outlined"
+                margin="normal"
+                value={registerData.telegram_username}
+                onChange={(e) => setRegisterData({ ...registerData, telegram_username: e.target.value })}
+                placeholder="@username или username"
+                helperText="Обязательно для связи с ассистентом"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <AlternateEmail color="primary" />
                     </InputAdornment>
                   ),
                 }}
@@ -263,6 +345,7 @@ const WelcomeScreen: React.FC = () => {
                 margin="normal"
                 value={registerData.password}
                 onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                helperText="Минимум 6 символов"
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -287,7 +370,15 @@ const WelcomeScreen: React.FC = () => {
                 fullWidth
                 variant="contained"
                 size="large"
-                disabled={loading || !registerData.name || !registerData.phone || !registerData.password}
+                disabled={
+                  loading || 
+                  !registerData.name || 
+                  !registerData.phone || 
+                  !registerData.password || 
+                  !registerData.telegram_username ||
+                  !isValidPhoneNumber(registerData.phone) ||
+                  registerData.password.length < 6
+                }
                 startIcon={loading ? <CircularProgress size={20} /> : <PersonAdd />}
                 sx={{
                   py: 1.5,

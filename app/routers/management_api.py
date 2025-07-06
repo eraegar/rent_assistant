@@ -416,7 +416,7 @@ def get_available_assistants(
             "id": assistant.id,
             "name": assistant.user.name,
             "email": assistant.email,
-            "password": "assistant123",  # Default password for assistants
+            "last_known_password": assistant.last_known_password,  # Real password from database
             "specialization": assistant.specialization.value,
             "status": assistant.status,
             "current_active_tasks": assistant.current_active_tasks,
@@ -442,8 +442,20 @@ def create_assistant(
         if field not in assistant_data or not assistant_data[field]:
             raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
     
+    # Format phone number to ensure it starts with +7
+    phone = assistant_data["phone"]
+    if not phone.startswith('+'):
+        if phone.startswith('8'):
+            phone = '+7' + phone[1:]
+        elif phone.startswith('7'):
+            phone = '+' + phone
+        else:
+            phone = '+7' + phone
+    
+    print(f"📞 Creating assistant with phone: {phone} (original: {assistant_data['phone']})")
+    
     # Check if phone already exists
-    existing_user = db.query(models.User).filter(models.User.phone == assistant_data["phone"]).first()
+    existing_user = db.query(models.User).filter(models.User.phone == phone).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Phone number already registered")
     
@@ -463,7 +475,7 @@ def create_assistant(
     # Create user
     hashed_password = auth.get_password_hash(assistant_data["password"])
     db_user = models.User(
-        phone=assistant_data["phone"],
+        phone=phone,  # Use formatted phone number
         name=assistant_data["name"],
         password_hash=hashed_password,
         role=models.UserRole.assistant,
@@ -477,7 +489,9 @@ def create_assistant(
         user_id=db_user.id,
         email=assistant_data["email"],
         specialization=specialization,
-        status="offline"
+        status="offline",
+        last_known_password=assistant_data["password"],  # Store original password
+        last_password_reset_at=datetime.utcnow()
     )
     db.add(assistant_profile)
     
@@ -595,6 +609,57 @@ def get_assistant_performance(
         }
     }
 
+@router.post("/assistants/{assistant_id}/reset-password")
+async def reset_assistant_password(
+    assistant_id: int,
+    current_manager: models.User = Depends(get_current_manager),
+    db: Session = Depends(get_db)
+):
+    """Reset assistant password and return new password"""
+    try:
+        print(f"🔄 Password reset request for assistant: {assistant_id}")
+        
+        # Find assistant
+        assistant_user = db.query(models.User).filter(
+            models.User.id == assistant_id,
+            models.User.role == models.UserRole.assistant
+        ).first()
+        
+        if not assistant_user:
+            raise HTTPException(status_code=404, detail="Assistant not found")
+        
+        # Generate new password
+        import secrets
+        import string
+        
+        new_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
+        
+        # Update password
+        hashed_password = auth.get_password_hash(new_password)
+        assistant_user.password_hash = hashed_password
+        
+        # Store the new password in assistant profile for management reference
+        assistant_profile = assistant_user.assistant_profile
+        assistant_profile.last_known_password = new_password
+        assistant_profile.last_password_reset_at = datetime.utcnow()
+        
+        db.commit()
+        print(f"✅ Password reset successful for assistant: {assistant_id}")
+        
+        return {
+            "success": True,
+            "message": "Password reset successfully",
+            "new_password": new_password,
+            "assistant_name": assistant_user.name
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Password reset error: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 @router.put("/clients/{client_id}/assign-assistant")
 def assign_client_to_assistant(
     client_id: int,
@@ -623,15 +688,20 @@ def assign_client_to_assistant(
     if assistant.current_active_tasks >= 5:
         raise HTTPException(status_code=400, detail="Assistant is at maximum capacity (5 active tasks)")
     
-    # Check if assignment already exists
+    # Check if client already has any active assignment (one assistant per client rule)
     existing_assignment = db.query(models.ClientAssistantAssignment).filter(
         models.ClientAssistantAssignment.client_id == client_id,
-        models.ClientAssistantAssignment.assistant_id == assistant_id,
         models.ClientAssistantAssignment.status == models.AssignmentStatus.active
     ).first()
     
     if existing_assignment:
-        raise HTTPException(status_code=400, detail="Client is already assigned to this assistant")
+        existing_assistant = db.query(models.AssistantProfile).filter(
+            models.AssistantProfile.id == existing_assignment.assistant_id
+        ).first()
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Client is already assigned to assistant '{existing_assistant.user.name}'. Each client can have only one assistant."
+        )
     
     # Determine allowed task types based on assistant specialization and client subscription
     allowed_task_types = []
@@ -744,7 +814,6 @@ def get_all_assistants(
             "email": assistant.email,
             "phone": assistant.user.phone,
             "telegram_username": assistant.user.telegram_username,
-            "password": "assistant123",  # Default password for all assistants created via manager
             "specialization": assistant.specialization.value,
             "status": assistant.status,
             "current_active_tasks": assistant.current_active_tasks,
@@ -753,7 +822,9 @@ def get_all_assistants(
             "is_available": is_available,
             "recent_tasks_week": recent_tasks,
             "last_active": assistant.user.last_active.isoformat() if assistant.user.last_active else None,
-            "created_at": assistant.user.created_at.isoformat()
+            "created_at": assistant.user.created_at.isoformat(),
+            "last_known_password": assistant.last_known_password,  # Include last known password
+            "last_password_reset_at": assistant.last_password_reset_at.isoformat() if assistant.last_password_reset_at else None
         }
         assistant_list.append(assistant_data)
     
@@ -779,17 +850,24 @@ def get_all_clients(
     current_manager: models.User = Depends(get_current_manager),
     db: Session = Depends(get_db)
 ):
-    """Get all clients with their subscription status and assigned assistants"""
+    """Get all clients with active subscriptions and their assigned assistants"""
     import json
     
-    query = db.query(models.ClientProfile)
+    # По умолчанию показываем только клиентов с активными подписками
+    query = db.query(models.ClientProfile).join(models.Subscription).filter(
+        models.Subscription.status == models.SubscriptionStatus.active
+    )
     
+    # Дополнительная фильтрация по статусу подписки (если требуется)
     if subscription_status:
-        if subscription_status == "active":
-            query = query.filter(models.ClientProfile.subscription_id.isnot(None))
-            query = query.join(models.Subscription).filter(models.Subscription.status == models.SubscriptionStatus.active)
-        elif subscription_status == "none":
-            query = query.filter(models.ClientProfile.subscription_id.is_(None))
+        if subscription_status == "expired":
+            # Показать клиентов с истекшими подписками
+            query = db.query(models.ClientProfile).join(models.Subscription).filter(
+                models.Subscription.status == models.SubscriptionStatus.expired
+            )
+        elif subscription_status == "all":
+            # Показать всех клиентов (включая без подписки)
+            query = db.query(models.ClientProfile)
     
     total_count = query.count()
     clients = query.offset(skip).limit(limit).all()

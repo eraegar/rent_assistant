@@ -290,6 +290,9 @@ const Dashboard: React.FC = () => {
       case 'in_progress': return 'info';
       case 'completed': return 'success';
       case 'approved': return 'success';
+      case 'revision_requested': return 'warning';
+      case 'rejected': return 'error';
+      case 'cancelled': return 'secondary';
       default: return 'default';
     }
   };
@@ -300,6 +303,9 @@ const Dashboard: React.FC = () => {
       'in_progress': 'В работе',
       'completed': 'Завершена',
       'approved': 'Одобрена',
+      'revision_requested': 'Нужны исправления',
+      'rejected': 'Отклонена',
+      'cancelled': 'Отменена',
       'personal': 'Личное',
       'business': 'Бизнес'
     };
@@ -591,7 +597,7 @@ const Dashboard: React.FC = () => {
                     )}
                   </TableCell>
                   <TableCell>
-                    {task.status === 'in_progress' && (
+                    {(task.status === 'in_progress' || task.status === 'revision_requested') && (
                       <Box sx={{ display: 'flex', gap: 1 }}>
                         <Button
                           startIcon={<CompleteIcon />}
@@ -600,7 +606,7 @@ const Dashboard: React.FC = () => {
                           color="success"
                           onClick={() => handleCompleteTask(task.id)}
                         >
-                          Завершить
+                          {task.status === 'revision_requested' ? 'Исправить и завершить' : 'Завершить'}
                         </Button>
                         <Button
                           startIcon={<RejectIcon />}
@@ -682,7 +688,7 @@ const Dashboard: React.FC = () => {
             />
             <Tab 
               icon={
-                <Badge badgeContent={assignedTasks.filter(t => t.status === 'in_progress').length} color="primary">
+                <Badge badgeContent={assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'revision_requested').length} color="primary">
                   <TaskIcon />
                 </Badge>
               } 

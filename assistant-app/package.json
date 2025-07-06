@@ -1,7 +1,7 @@
 {
   "name": "telegram-assistant-worker",
   "version": "1.0.0",
-  "description": "Assistant Interface for Telegram Assistant Service",
+  "description": "Assistant Dashboard for Telegram Assistant Service",
   "private": true,
   "scripts": {
     "start": "cross-env PORT=3002 react-scripts start",
@@ -47,4 +47,4 @@
     ]
   },
   "proxy": "http://localhost:8000"
-}
+} 

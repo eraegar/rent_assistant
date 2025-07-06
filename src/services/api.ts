@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { User, Task, TaskType, TaskStatus, ApiResponse } from '../types';
+import { User, Task, TaskType, TaskStatus, TaskApproval, TaskRevision, ApiResponse } from '../types';
 
 class ApiService {
   private api: AxiosInstance;
@@ -83,12 +83,13 @@ class ApiService {
     }
   }
 
-  async register(name: string, phone: string, password: string): Promise<ApiResponse<{ user: User; token: string }>> {
+  async register(name: string, phone: string, password: string, telegram_username?: string): Promise<ApiResponse<{ user: User; token: string }>> {
     try {
       await this.api.post('/clients/auth/register', {
         name,
         phone,
-        password
+        password,
+        telegram_username
       });
       
       // Auto-login after registration
@@ -139,6 +140,21 @@ class ApiService {
     }
   }
 
+  async getTask(taskId: string): Promise<ApiResponse<Task>> {
+    try {
+      const response = await this.api.get(`/clients/tasks/${taskId}`);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.response?.data?.detail || error.message
+      };
+    }
+  }
+
   async createTask(title: string, description: string, type: TaskType): Promise<ApiResponse<Task>> {
     try {
       const response = await this.api.post('/clients/tasks', {
@@ -165,6 +181,37 @@ class ApiService {
         status,
         ...(result && { result })
       });
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.response?.data?.detail || error.message
+      };
+    }
+  }
+
+  // Новые методы для работы с оценкой и доработкой задач
+  async approveTask(taskId: string, approval: TaskApproval): Promise<ApiResponse> {
+    try {
+      const response = await this.api.post(`/clients/tasks/${taskId}/approve`, approval);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.response?.data?.detail || error.message
+      };
+    }
+  }
+
+  async requestRevision(taskId: string, revision: TaskRevision): Promise<ApiResponse> {
+    try {
+      const response = await this.api.post(`/clients/tasks/${taskId}/request-revision`, revision);
       return {
         success: true,
         data: response.data

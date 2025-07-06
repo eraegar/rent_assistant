@@ -6,7 +6,7 @@ import { useTaskStore } from './useTaskStore';
 
 interface AuthStore extends AuthState {
   login: (phone: string, password: string) => Promise<boolean>;
-  register: (name: string, phone: string, password: string) => Promise<boolean>;
+  register: (name: string, phone: string, password: string, telegram_username?: string) => Promise<boolean>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   activateSubscription: (planType: string, paymentToken: string) => Promise<boolean>;
@@ -59,10 +59,10 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      register: async (name: string, phone: string, password: string): Promise<boolean> => {
+      register: async (name: string, phone: string, password: string, telegram_username?: string): Promise<boolean> => {
         set({ isLoading: true });
         try {
-          const response = await apiService.register(name, phone, password);
+          const response = await apiService.register(name, phone, password, telegram_username);
           if (response.success && response.data) {
             set({ 
               user: response.data.user,
