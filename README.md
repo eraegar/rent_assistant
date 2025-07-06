@@ -200,17 +200,20 @@ A comprehensive solution for managing rental properties through Telegram integra
 **Test**: [Performance Test](Quality/performance_test.py)
 
 ### Security
+
 #### Confidentiality
-Importance: Protects sensitive user data (phone numbers, payment plans, emails) and prevents unauthorized account access. Essential for legal compliance and user trust.
+
+**Importance**: Protects sensitive user data (phone numbers, payment plans, emails) and prevents unauthorized account access. Essential for legal compliance and user trust.
 
 Quality Attribute Scenario:
-- Source: Unauthorized user attempting access
-- Stimulus: Attempt to access private account data
-- Artifact: Authentication/authorization system
-- Environment: Production during registration/authentication
-- Response: System blocks access and logs attempt
-- Response Measure: 100% unauthorized access blocked within 1 second
-- Test: [Security Test](Quality/security_test.py)
+- **Source**: Unauthorized user attempting access
+- **Stimulus**: Attempt to access private account data
+- **Artifact**: Authentication/authorization system
+- **Environment**: Production during registration/authentication
+- **Response**: System blocks access and logs attempt
+- **Response Measure**: 100% unauthorized access blocked within 1 second
+
+**Test**: [Security Test](Quality/security_test.py)
 
 ## Architecture
 
