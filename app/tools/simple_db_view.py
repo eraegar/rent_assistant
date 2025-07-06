@@ -3,7 +3,7 @@ import os
 
 # Connect to database
 current_dir = os.path.dirname(os.path.abspath(__file__))
-db_path = os.path.abspath(os.path.join(current_dir, '..', '..', 'test.db'))  # go up two levels to project root/test.db
+db_path = os.path.abspath(os.path.join(current_dir, '..', 'test.db'))  # go up one level to app/test.db
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 

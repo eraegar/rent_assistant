@@ -36,12 +36,16 @@ import {
   Assignment,
   CheckCircle,
   Schedule,
+  RateReview,
+  Edit,
+  Star,
 } from '@mui/icons-material';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useTaskStore } from '../stores/useTaskStore';
 import { Task as TaskType, TaskStatus } from '../types';
 import ProfileModal from './ProfileModal';
 import NewTaskModal from './NewTaskModal';
+import TaskReviewModal from './TaskReviewModal';
 import { StatsCard, EnhancedPaper, GradientChip, clientGradients } from '../styles/gradients';
 import { apiService } from '../services/api';
 
@@ -53,6 +57,7 @@ const DashboardScreen: React.FC = () => {
   const [showNewTaskDialog, setShowNewTaskDialog] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showTaskDetailDialog, setShowTaskDetailDialog] = useState(false);
+  const [showTaskReviewModal, setShowTaskReviewModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskType | null>(null);
   const [taskTypePermissions, setTaskTypePermissions] = useState({
     allowed_types: ['personal', 'business'],
@@ -115,12 +120,24 @@ const DashboardScreen: React.FC = () => {
     setShowTaskDetailDialog(true);
   };
 
+  const handleReviewTask = (task: TaskType) => {
+    setSelectedTask(task);
+    setShowTaskReviewModal(true);
+  };
+
+  const handleTaskUpdated = () => {
+    fetchTasks(); // Refresh tasks after approval/revision
+  };
+
   const getStatusColor = (status: TaskStatus) => {
     switch (status) {
       case TaskStatus.PENDING: return 'warning';
       case TaskStatus.IN_PROGRESS: return 'info';
       case TaskStatus.COMPLETED: return 'success';
+      case TaskStatus.APPROVED: return 'success';
+      case TaskStatus.REVISION_REQUESTED: return 'warning';
       case TaskStatus.CANCELLED: return 'error';
+      case TaskStatus.REJECTED: return 'error';
       default: return 'default';
     }
   };
@@ -129,8 +146,11 @@ const DashboardScreen: React.FC = () => {
     switch (status) {
       case TaskStatus.PENDING: return 'Ожидает';
       case TaskStatus.IN_PROGRESS: return 'В работе';
-      case TaskStatus.COMPLETED: return 'Завершена';
+      case TaskStatus.COMPLETED: return 'Выполнена';
+      case TaskStatus.APPROVED: return 'Принята';
+      case TaskStatus.REVISION_REQUESTED: return 'На доработке';
       case TaskStatus.CANCELLED: return 'Отменена';
+      case TaskStatus.REJECTED: return 'Отклонена';
       default: return 'Неизвестно';
     }
   };
@@ -140,14 +160,29 @@ const DashboardScreen: React.FC = () => {
       case TaskStatus.PENDING: return <Schedule />;
       case TaskStatus.IN_PROGRESS: return <Assignment />;
       case TaskStatus.COMPLETED: return <CheckCircle />;
+      case TaskStatus.APPROVED: return <Star />;
+      case TaskStatus.REVISION_REQUESTED: return <Edit />;
       default: return <Task />;
     }
   };
 
+  const canReviewTask = (task: TaskType) => {
+    return task.status === TaskStatus.COMPLETED;
+  };
+
   const activeTasks = tasks.filter((task: TaskType) => 
-    task.status === TaskStatus.PENDING || task.status === TaskStatus.IN_PROGRESS
+    task.status === TaskStatus.PENDING || 
+    task.status === TaskStatus.IN_PROGRESS ||
+    task.status === TaskStatus.REVISION_REQUESTED
   );
-  const completedTasks = tasks.filter((task: TaskType) => task.status === TaskStatus.COMPLETED);
+  
+  const completedTasks = tasks.filter((task: TaskType) => 
+    task.status === TaskStatus.COMPLETED
+  );
+
+  const approvedTasks = tasks.filter((task: TaskType) => 
+    task.status === TaskStatus.APPROVED
+  );
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -159,7 +194,7 @@ const DashboardScreen: React.FC = () => {
           </Typography>
           
           <IconButton color="inherit" sx={{ mr: 2 }}>
-            <Badge badgeContent={activeTasks.length} color="error">
+            <Badge badgeContent={completedTasks.length} color="error">
               <NotificationsNone />
             </Badge>
           </IconButton>
@@ -200,6 +235,14 @@ const DashboardScreen: React.FC = () => {
             Управляйте своими задачами и отслеживайте их выполнение
           </Typography>
         </Box>
+
+        {/* Alert for completed tasks */}
+        {completedTasks.length > 0 && (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            У вас {completedTasks.length} выполненных задач ожидающих принятия! 
+            Пожалуйста, оцените работу ассистентов.
+          </Alert>
+        )}
 
         {/* Stats Cards */}
         <Grid container spacing={3} mb={4}>
@@ -249,7 +292,7 @@ const DashboardScreen: React.FC = () => {
                       {completedTasks.length}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" fontWeight={500}>
-                      Завершено
+                      Ожидают принятия
                     </Typography>
                   </Box>
                 </Box>
@@ -261,13 +304,13 @@ const DashboardScreen: React.FC = () => {
             <StatsCard>
               <CardContent>
                 <Box display="flex" alignItems="center">
-                  <Schedule sx={{ fontSize: 40, color: 'info.main', mr: 2 }} />
+                  <Star sx={{ fontSize: 40, color: 'info.main', mr: 2 }} />
                   <Box>
                     <Typography variant="h4" fontWeight="bold">
-                      24ч
+                      {approvedTasks.length}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" fontWeight={500}>
-                      Время выполнения
+                      Принято
                     </Typography>
                   </Box>
                 </Box>
@@ -299,7 +342,34 @@ const DashboardScreen: React.FC = () => {
                     <ListItem key={task.id} divider>
                       <ListItemText
                         primary={task.title}
-                        secondary={task.description}
+                        secondary={
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              {task.description}
+                            </Typography>
+                            {task.client_rating && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                                  Оценка:
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star 
+                                      key={star}
+                                      sx={{ 
+                                        fontSize: 16, 
+                                        color: star <= (task.client_rating || 0) ? 'warning.main' : 'grey.300' 
+                                      }} 
+                                    />
+                                  ))}
+                                  <Typography variant="caption" sx={{ ml: 1 }}>
+                                    ({task.client_rating}/5)
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            )}
+                          </Box>
+                        }
                       />
                       <Box sx={{ mr: 2 }}>
                         <GradientChip
@@ -310,12 +380,33 @@ const DashboardScreen: React.FC = () => {
                         />
                       </Box>
                       <ListItemSecondaryAction>
-                        <IconButton
-                          edge="end"
-                          onClick={() => handleViewTask(task)}
-                        >
-                          <Visibility />
-                        </IconButton>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <IconButton
+                            edge="end"
+                            onClick={() => handleViewTask(task)}
+                            color="primary"
+                          >
+                            <Visibility />
+                          </IconButton>
+                          
+                          {canReviewTask(task) && (
+                            <IconButton
+                              edge="end"
+                              onClick={() => handleReviewTask(task)}
+                              color="success"
+                              sx={{
+                                animation: 'pulse 2s infinite',
+                                '@keyframes pulse': {
+                                  '0%': { transform: 'scale(1)' },
+                                  '50%': { transform: 'scale(1.1)' },
+                                  '100%': { transform: 'scale(1)' }
+                                }
+                              }}
+                            >
+                              <RateReview />
+                            </IconButton>
+                          )}
+                        </Box>
                       </ListItemSecondaryAction>
                     </ListItem>
                   ))}
@@ -348,6 +439,28 @@ const DashboardScreen: React.FC = () => {
                 >
                   Создать новую задачу
                 </Button>
+                
+                {completedTasks.length > 0 && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<RateReview />}
+                    fullWidth
+                    color="success"
+                    onClick={() => {
+                      const firstCompletedTask = completedTasks[0];
+                      handleReviewTask(firstCompletedTask);
+                    }}
+                    sx={{
+                      borderWidth: 2,
+                      '&:hover': {
+                        borderWidth: 2,
+                        transform: 'translateY(-1px)',
+                      }
+                    }}
+                  >
+                    Принять работу ({completedTasks.length})
+                  </Button>
+                )}
                 
                 <Button
                   variant="outlined"
@@ -399,6 +512,14 @@ const DashboardScreen: React.FC = () => {
         canChooseType={taskTypePermissions.can_choose_type}
       />
 
+      {/* Task Review Modal */}
+      <TaskReviewModal
+        open={showTaskReviewModal}
+        onClose={() => setShowTaskReviewModal(false)}
+        task={selectedTask}
+        onTaskUpdated={handleTaskUpdated}
+      />
+
       {/* Task Detail Dialog */}
       <Dialog open={showTaskDetailDialog} onClose={() => setShowTaskDetailDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle>Детали задачи</DialogTitle>
@@ -423,7 +544,69 @@ const DashboardScreen: React.FC = () => {
                   variant="outlined" 
                 />
               </Box>
-              <Typography variant="body2" color="text.secondary">
+
+              {selectedTask.result && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                    Результат работы:
+                  </Typography>
+                  <Typography variant="body2" sx={{ 
+                    bgcolor: 'grey.50', 
+                    p: 2, 
+                    borderRadius: 1, 
+                    border: '1px solid',
+                    borderColor: 'grey.300'
+                  }}>
+                    {selectedTask.result}
+                  </Typography>
+                </Box>
+              )}
+
+              {selectedTask.completion_notes && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                    Комментарии ассистента:
+                  </Typography>
+                  <Typography variant="body2" sx={{ 
+                    bgcolor: 'grey.50', 
+                    p: 2, 
+                    borderRadius: 1, 
+                    border: '1px solid',
+                    borderColor: 'grey.300'
+                  }}>
+                    {selectedTask.completion_notes}
+                  </Typography>
+                </Box>
+              )}
+
+              {selectedTask.client_rating && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                    Ваша оценка:
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star 
+                        key={star}
+                        sx={{ 
+                          fontSize: 20, 
+                          color: star <= (selectedTask.client_rating || 0) ? 'warning.main' : 'grey.300' 
+                        }} 
+                      />
+                    ))}
+                    <Typography variant="body2" sx={{ ml: 1 }}>
+                      ({selectedTask.client_rating}/5)
+                    </Typography>
+                  </Box>
+                  {selectedTask.client_feedback && (
+                    <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                      "{selectedTask.client_feedback}"
+                    </Typography>
+                  )}
+                </Box>
+              )}
+
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
                 Создано: {new Date(selectedTask.created_at).toLocaleString('ru-RU')}
               </Typography>
               {selectedTask.updated_at && (
@@ -431,10 +614,33 @@ const DashboardScreen: React.FC = () => {
                   Обновлено: {new Date(selectedTask.updated_at).toLocaleString('ru-RU')}
                 </Typography>
               )}
+              {selectedTask.completed_at && (
+                <Typography variant="body2" color="text.secondary">
+                  Выполнено: {new Date(selectedTask.completed_at).toLocaleString('ru-RU')}
+                </Typography>
+              )}
+              {selectedTask.approved_at && (
+                <Typography variant="body2" color="text.secondary">
+                  Принято: {new Date(selectedTask.approved_at).toLocaleString('ru-RU')}
+                </Typography>
+              )}
             </Box>
           )}
         </DialogContent>
         <DialogActions>
+          {selectedTask && canReviewTask(selectedTask) && (
+            <Button 
+              onClick={() => {
+                setShowTaskDetailDialog(false);
+                handleReviewTask(selectedTask);
+              }}
+              variant="contained"
+              color="success"
+              startIcon={<RateReview />}
+            >
+              Принять или отправить на доработку
+            </Button>
+          )}
           <Button onClick={() => setShowTaskDetailDialog(false)}>Закрыть</Button>
         </DialogActions>
       </Dialog>

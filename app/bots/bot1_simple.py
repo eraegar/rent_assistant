@@ -9,6 +9,11 @@ load_dotenv()  # Загружаем также корневой .env как fall
 
 TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 
+# URL-ы для различных веб-приложений
+CLIENT_WEBAPP_URL = os.getenv("CLIENT_WEBAPP_URL", "https://client.yourdomain.com") # Пример
+MANAGER_WEBAPP_URL = os.getenv("MANAGER_WEBAPP_URL", "https://manager.yourdomain.com") # Пример
+ASSISTANT_WEBAPP_URL = os.getenv("ASSISTANT_WEBAPP_URL", "https://assistant.yourdomain.com") # Пример
+
 
 async def start(update, context):
     print(f"🔍 DEBUG: START command received from user {update.effective_user.first_name}")
@@ -21,12 +26,9 @@ async def start(update, context):
         "👇 Выберите действие:"
     )
 
-    # Получаем WebApp URL из .env файла
-    webapp_url = os.getenv("WEBAPP_URL", "https://4257-194-164-216-167.ngrok-free.app")
-    
     keyboard = [
         [
-            telegram.InlineKeyboardButton("🚀 Открыть приложение", url=webapp_url)
+            telegram.InlineKeyboardButton("🚀 Открыть приложение", url=CLIENT_WEBAPP_URL)
         ],
         [
             telegram.InlineKeyboardButton("💡 Примеры задач", callback_data='task_examples'),
@@ -42,6 +44,31 @@ async def start(update, context):
     print(f"🔍 DEBUG: Sending start message with {len(keyboard)} rows of buttons")
     await update.message.reply_text(welcome_text, reply_markup=markup)
     print(f"✅ DEBUG: Start message sent successfully")
+
+# Новые функции-обработчики для команд ссылок на приложения
+async def send_client_app_link(update, context):
+    await update.message.reply_text(
+        "🚀 Открыть клиентское приложение:",
+        reply_markup=telegram.InlineKeyboardMarkup([
+            [telegram.InlineKeyboardButton("Открыть Клиентское Приложение", url=CLIENT_WEBAPP_URL)]
+        ])
+    )
+
+async def send_manager_app_link(update, context):
+    await update.message.reply_text(
+        "💼 Открыть приложение менеджера:",
+        reply_markup=telegram.InlineKeyboardMarkup([
+            [telegram.InlineKeyboardButton("Открыть Приложение Менеджера", url=MANAGER_WEBAPP_URL)]
+        ])
+    )
+
+async def send_assistant_app_link(update, context):
+    await update.message.reply_text(
+        "🧑‍💻 Открыть приложение ассистента:",
+        reply_markup=telegram.InlineKeyboardMarkup([
+            [telegram.InlineKeyboardButton("Открыть Приложение Ассистента", url=ASSISTANT_WEBAPP_URL)]
+        ])
+    )
 
 
 async def handle_callback(update, context):
@@ -112,9 +139,8 @@ async def handle_callback(update, context):
                 "• Запланировать встречи с клиентами на следующую неделю"
             )
             
-            webapp_url = os.getenv("WEBAPP_URL", "https://4257-194-164-216-167.ngrok-free.app")
             keyboard = [
-                [telegram.InlineKeyboardButton("🚀 Создать задачу в приложении", url=webapp_url)],
+                [telegram.InlineKeyboardButton("🚀 Создать задачу в приложении", url=CLIENT_WEBAPP_URL)], # Изменено на CLIENT_WEBAPP_URL
                 [telegram.InlineKeyboardButton("✍️ Написать задачу в чат", callback_data='create_task')],
                 [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
             ]
@@ -192,9 +218,8 @@ async def handle_callback(update, context):
                 "💬 Жду ваше сообщение!"
             )
             
-            webapp_url = os.getenv("WEBAPP_URL", "https://4257-194-164-216-167.ngrok-free.app")
             keyboard = [
-                [telegram.InlineKeyboardButton("🚀 Открыть приложение", url=webapp_url)],
+                [telegram.InlineKeyboardButton("🚀 Открыть приложение", url=CLIENT_WEBAPP_URL)], # Изменено на CLIENT_WEBAPP_URL
                 [telegram.InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
             ]
             markup = telegram.InlineKeyboardMarkup(keyboard)
@@ -203,10 +228,9 @@ async def handle_callback(update, context):
         elif query.data == 'back_to_main':
             print("DEBUG: Processing back_to_main callback")
             # Возвращаемся к главному меню
-            webapp_url = os.getenv("WEBAPP_URL", "https://4257-194-164-216-167.ngrok-free.app")
             keyboard = [
                 [
-                    telegram.InlineKeyboardButton("🚀 Открыть приложение", url=webapp_url)
+                    telegram.InlineKeyboardButton("🚀 Открыть приложение", url=CLIENT_WEBAPP_URL)
                 ],
                 [
                     telegram.InlineKeyboardButton("💡 Примеры задач", callback_data='task_examples'),
@@ -302,6 +326,11 @@ def main():
         callback_handler = CallbackQueryHandler(handle_callback)
         message_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
         
+        # Новые обработчики для ссылок на приложения
+        # client_app_handler = CommandHandler("client_app", send_client_app_link) # Убран по требованию пользователя
+        manager_app_handler = CommandHandler("manager_app", send_manager_app_link)
+        assistant_app_handler = CommandHandler("assistant_app", send_assistant_app_link)
+        
         application.add_handler(start_handler)
         print(f"✅ DEBUG: Start handler registered")
         
@@ -310,6 +339,15 @@ def main():
         
         application.add_handler(message_handler)
         print(f"✅ DEBUG: Message handler registered")
+
+        # application.add_handler(client_app_handler) # Убран по требованию пользователя
+        # print(f"✅ DEBUG: Client app handler registered")
+        
+        application.add_handler(manager_app_handler)
+        print(f"✅ DEBUG: Manager app handler registered")
+        
+        application.add_handler(assistant_app_handler)
+        print(f"✅ DEBUG: Assistant app handler registered")
 
         print("🚀 Bot is running...")
         print("✅ All handlers registered successfully")

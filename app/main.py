@@ -1,4 +1,5 @@
 import os
+import json
 from fastapi import FastAPI, Depends, HTTPException, status, Header, Request, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -34,7 +35,7 @@ try:
     print("✅ Management API router loaded successfully")
 except ImportError as e:
     print(f"⚠️ Management API router not found, creating placeholder. Error: {e}")
-from fastapi import APIRouter
+    from fastapi import APIRouter
     management_router = APIRouter(prefix="/api/v1/management", tags=["management"])
 
 # Create database tables
@@ -1076,15 +1077,22 @@ async def get_all_clients_direct(
         if not user or user.role != models.UserRole.manager:
             raise HTTPException(status_code=403, detail="Access denied. Manager role required.")
         
-        # Get clients from database
-        query = db.query(models.ClientProfile).join(models.User).filter(
-            models.User.role == models.UserRole.client
+        # Get clients from database - по умолчанию только с активными подписками
+        query = db.query(models.ClientProfile).join(models.User).join(models.Subscription).filter(
+            models.User.role == models.UserRole.client,
+            models.Subscription.status == models.SubscriptionStatus.active
         )
         
-        # Filter by subscription status if provided
+        # Дополнительная фильтрация по статусу подписки
         if subscription_status:
-            query = query.join(models.Subscription).filter(
-                models.Subscription.status == subscription_status
+            if subscription_status == "expired":
+                query = db.query(models.ClientProfile).join(models.User).join(models.Subscription).filter(
+                    models.User.role == models.UserRole.client,
+                    models.Subscription.status == models.SubscriptionStatus.expired
+                )
+            elif subscription_status == "all":
+                query = db.query(models.ClientProfile).join(models.User).filter(
+                    models.User.role == models.UserRole.client
             )
         
         total_count = query.count()
@@ -1114,6 +1122,22 @@ async def get_all_clients_direct(
                     "auto_renew": client.subscription.auto_renew
                 }
             
+            # Get assigned assistants
+            assigned_assistants = []
+            for assignment in client.assigned_assistants:
+                if assignment.status == models.AssignmentStatus.active:
+                    allowed_task_types = json.loads(assignment.allowed_task_types) if assignment.allowed_task_types else []
+                    assigned_assistants.append({
+                        "id": assignment.assistant.id,
+                        "name": assignment.assistant.user.name,
+                        "specialization": assignment.assistant.specialization.value,
+                        "status": assignment.assistant.status,
+                        "current_active_tasks": assignment.assistant.current_active_tasks,
+                        "allowed_task_types": allowed_task_types,
+                        "assignment_id": assignment.id,
+                        "assigned_at": assignment.created_at.isoformat()
+                    })
+            
             client_data = {
                 "id": client.id,
                 "name": client.user.name,
@@ -1123,7 +1147,8 @@ async def get_all_clients_direct(
                 "total_tasks": total_tasks,
                 "active_tasks": active_tasks,
                 "created_at": client.user.created_at.isoformat(),
-                "subscription": subscription_data
+                "subscription": subscription_data,
+                "assigned_assistants": assigned_assistants
             }
             client_list.append(client_data)
         
@@ -1226,4 +1251,372 @@ async def get_marketplace_stats_direct(
         raise
     except Exception as e:
         print(f"❌ Marketplace stats error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# =============================================================================
+# ADDITIONAL MANAGEMENT ENDPOINTS
+# =============================================================================
+
+@app.get("/api/v1/management/assistants/available")
+async def get_available_assistants_direct(
+    task_type: Optional[str] = Query(None),
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Direct available assistants endpoint"""
+    try:
+        print(f"👥 Available assistants request for manager: {current_user.id}")
+        
+        # Reload user from DB
+        user = db.query(models.User).filter(models.User.id == current_user.id).first()
+        if not user or user.role != models.UserRole.manager:
+            raise HTTPException(status_code=403, detail="Access denied. Manager role required.")
+        
+        # Build query for available assistants
+        query = db.query(models.AssistantProfile).join(models.User).filter(
+            models.AssistantProfile.current_active_tasks < 5  # Not at max capacity
+        )
+        
+        # Filter by task type if specified
+        if task_type:
+            if task_type == "personal":
+                query = query.filter(
+                    models.AssistantProfile.specialization.in_([
+                        models.AssistantSpecialization.personal_only,
+                        models.AssistantSpecialization.full_access
+                    ])
+                )
+            elif task_type == "business":
+                query = query.filter(
+                    models.AssistantProfile.specialization.in_([
+                        models.AssistantSpecialization.business_only,
+                        models.AssistantSpecialization.full_access
+                    ])
+                )
+        
+        assistants = query.all()
+        
+        available_assistants = []
+        for assistant in assistants:
+            available_assistants.append({
+                "id": assistant.id,
+                "name": assistant.user.name,
+                "email": assistant.email,
+                "specialization": assistant.specialization.value,
+                "status": assistant.status,
+                "current_active_tasks": assistant.current_active_tasks,
+                "total_tasks_completed": assistant.total_tasks_completed,
+                "average_rating": assistant.average_rating,
+                "is_available": assistant.current_active_tasks < 5
+            })
+        
+        print(f"✅ Found {len(available_assistants)} available assistants")
+        return available_assistants
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Available assistants error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.put("/api/v1/management/clients/{client_id}/assign-assistant")
+async def assign_client_to_assistant_direct(
+    client_id: int,
+    request: Request,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Direct client assignment endpoint"""
+    try:
+        print(f"🔗 Client assignment request for client: {client_id}")
+        data = await request.json()
+        assistant_id = data.get("assistant_id")
+        
+        # Reload user from DB
+        user = db.query(models.User).filter(models.User.id == current_user.id).first()
+        if not user or user.role != models.UserRole.manager:
+            raise HTTPException(status_code=403, detail="Access denied. Manager role required.")
+        
+        # Validate client exists
+        client = db.query(models.ClientProfile).filter(models.ClientProfile.id == client_id).first()
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found")
+        
+        # Validate assistant exists
+        assistant = db.query(models.AssistantProfile).filter(models.AssistantProfile.id == assistant_id).first()
+        if not assistant:
+            raise HTTPException(status_code=404, detail="Assistant not found")
+        
+        # Check if client already has an active assignment (one assistant per client rule)
+        existing_assignment = db.query(models.ClientAssistantAssignment).filter(
+            models.ClientAssistantAssignment.client_id == client_id,
+            models.ClientAssistantAssignment.status == models.AssignmentStatus.active
+        ).first()
+        
+        if existing_assignment:
+            existing_assistant = db.query(models.AssistantProfile).filter(
+                models.AssistantProfile.id == existing_assignment.assistant_id
+            ).first()
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Client is already assigned to assistant '{existing_assistant.user.name}'. Each client can have only one assistant."
+            )
+        
+        # Check if assistant is available
+        if assistant.current_active_tasks >= 5:
+            raise HTTPException(status_code=400, detail="Assistant is at maximum capacity")
+        
+        # Determine allowed task types based on assistant specialization
+        if assistant.specialization == models.AssistantSpecialization.personal_only:
+            allowed_task_types = '["personal"]'
+        elif assistant.specialization == models.AssistantSpecialization.business_only:
+            allowed_task_types = '["business"]'
+        else:  # full_access
+            allowed_task_types = '["personal", "business"]'
+        
+        # Create assignment
+        assignment = models.ClientAssistantAssignment(
+            client_id=client_id,
+            assistant_id=assistant_id,
+            created_by=user.manager_profile.id,
+            status=models.AssignmentStatus.active,
+            allowed_task_types=allowed_task_types
+        )
+        
+        db.add(assignment)
+        
+        # Assign pending tasks from this client to the assistant
+        pending_tasks = db.query(models.Task).filter(
+            models.Task.client_id == client_id,
+            models.Task.status == models.TaskStatus.pending,
+            models.Task.assistant_id.is_(None)
+        ).all()
+        
+        assigned_tasks = 0
+        for task in pending_tasks:
+            # Check if assistant can handle this task type
+            if (assistant.specialization == models.AssistantSpecialization.personal_only and 
+                task.type == models.TaskType.business):
+                continue
+            elif (assistant.specialization == models.AssistantSpecialization.business_only and 
+                  task.type == models.TaskType.personal):
+                continue
+            
+            # Check capacity
+            if assistant.current_active_tasks >= 5:
+                break
+            
+            # Assign task
+            task.assistant_id = assistant_id
+            task.status = models.TaskStatus.in_progress
+            task.claimed_at = datetime.utcnow()
+            
+            # Update assistant stats
+            assistant.current_active_tasks += 1
+            assigned_tasks += 1
+        
+        db.commit()
+        print(f"✅ Client {client_id} assigned to assistant {assistant_id}, {assigned_tasks} tasks assigned")
+        
+        return {
+            "success": True,
+            "message": f"Client assigned to assistant successfully",
+            "assigned_tasks": assigned_tasks
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Client assignment error: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.delete("/api/v1/management/clients/{client_id}/unassign-assistant")
+async def unassign_client_from_assistant_direct(
+    client_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Direct client unassignment endpoint"""
+    try:
+        print(f"🔗 Client unassignment request for client: {client_id}")
+        
+        # Reload user from DB
+        user = db.query(models.User).filter(models.User.id == current_user.id).first()
+        if not user or user.role != models.UserRole.manager:
+            raise HTTPException(status_code=403, detail="Access denied. Manager role required.")
+        
+        # Find active assignment
+        assignment = db.query(models.ClientAssistantAssignment).filter(
+            models.ClientAssistantAssignment.client_id == client_id,
+            models.ClientAssistantAssignment.status == models.AssignmentStatus.active
+        ).first()
+        
+        if not assignment:
+            raise HTTPException(status_code=404, detail="No active assignment found for this client")
+        
+        # Get assistant
+        assistant = db.query(models.AssistantProfile).filter(
+            models.AssistantProfile.id == assignment.assistant_id
+        ).first()
+        
+        # Deactivate assignment
+        assignment.status = models.AssignmentStatus.deactivated
+        
+        # Return all tasks from this client back to marketplace
+        client_tasks = db.query(models.Task).filter(
+            models.Task.client_id == client_id,
+            models.Task.assistant_id == assignment.assistant_id,
+            models.Task.status == models.TaskStatus.in_progress
+        ).all()
+        
+        returned_tasks = 0
+        for task in client_tasks:
+            task.assistant_id = None
+            task.status = models.TaskStatus.pending
+            task.claimed_at = None
+            returned_tasks += 1
+            
+            # Update assistant stats
+            if assistant:
+                assistant.current_active_tasks -= 1
+        
+        db.commit()
+        print(f"✅ Client {client_id} unassigned from assistant {assignment.assistant_id}, {returned_tasks} tasks returned to marketplace")
+        
+        return {
+            "success": True,
+            "message": f"Client unassigned from assistant successfully",
+            "returned_tasks": returned_tasks
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Client unassignment error: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/api/v1/management/assistants/create")
+async def create_assistant_direct(
+    request: Request,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Direct assistant creation endpoint"""
+    try:
+        print(f"➕ Assistant creation request for manager: {current_user.id}")
+        data = await request.json()
+        
+        # Reload user from DB
+        user = db.query(models.User).filter(models.User.id == current_user.id).first()
+        if not user or user.role != models.UserRole.manager:
+            raise HTTPException(status_code=403, detail="Access denied. Manager role required.")
+        
+        required_fields = ["name", "phone", "email", "password", "specialization"]
+        for field in required_fields:
+            if field not in data or not data[field]:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        
+        # Check if phone already exists
+        existing_user = db.query(models.User).filter(models.User.phone == data["phone"]).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Phone number already registered")
+        
+        # Create user
+        hashed_password = auth.get_password_hash(data["password"])
+        db_user = models.User(
+            phone=data["phone"],
+            name=data["name"],
+            password_hash=hashed_password,
+            role=models.UserRole.assistant,
+            telegram_username=data.get("telegram_username")
+        )
+        
+        db.add(db_user)
+        db.flush()
+        
+        # Create assistant profile
+        specialization = data["specialization"]
+        if specialization not in [spec.value for spec in models.AssistantSpecialization]:
+            specialization = "personal_only"
+        
+        assistant_profile = models.AssistantProfile(
+            user_id=db_user.id,
+            email=data["email"],
+            specialization=getattr(models.AssistantSpecialization, specialization),
+            status="offline"
+        )
+        
+        db.add(assistant_profile)
+        db.commit()
+        db.refresh(db_user)
+        
+        response = {
+            "id": db_user.id,
+            "name": db_user.name,
+            "email": assistant_profile.email,
+            "specialization": assistant_profile.specialization.value,
+            "password": data["password"]  # Return password so manager can share it
+        }
+        
+        print(f"✅ Assistant created successfully: {response}")
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Assistant creation error: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/api/v1/management/assistants/{assistant_id}/reset-password")
+async def reset_assistant_password_direct(
+    assistant_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Direct assistant password reset endpoint"""
+    try:
+        print(f"🔄 Password reset request for assistant: {assistant_id}")
+        
+        # Reload user from DB
+        user = db.query(models.User).filter(models.User.id == current_user.id).first()
+        if not user or user.role != models.UserRole.manager:
+            raise HTTPException(status_code=403, detail="Access denied. Manager role required.")
+        
+        # Find assistant
+        assistant_user = db.query(models.User).filter(
+            models.User.id == assistant_id,
+            models.User.role == models.UserRole.assistant
+        ).first()
+        
+        if not assistant_user:
+            raise HTTPException(status_code=404, detail="Assistant not found")
+        
+        # Generate new password
+        import secrets
+        import string
+        
+        new_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
+        
+        # Update password
+        hashed_password = auth.get_password_hash(new_password)
+        assistant_user.password_hash = hashed_password
+        
+        db.commit()
+        print(f"✅ Password reset successful for assistant: {assistant_id}")
+        
+        return {
+            "success": True,
+            "message": "Password reset successfully",
+            "new_password": new_password,
+            "assistant_name": assistant_user.name
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Password reset error: {str(e)}")
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

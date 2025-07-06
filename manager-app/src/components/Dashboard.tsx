@@ -60,6 +60,7 @@ import {
 } from '@mui/icons-material';
 import { useManagerStore } from '../stores/useManagerStore';
 import { managerGradients } from '../theme';
+import { formatPhoneNumber, getCleanPhoneNumber, isValidPhoneNumber } from '../utils/phoneFormatter';
 
 // Styled components for enhanced design
 const StatsCard = styled(Card)(({ theme }) => ({
@@ -162,6 +163,8 @@ interface Assistant {
   last_active: string | null;
   recent_tasks_week?: number;
   created_at?: string;
+  last_known_password?: string;
+  last_password_reset_at?: string;
 }
 
 interface Client {
@@ -235,6 +238,14 @@ const Dashboard: React.FC = () => {
   const [assistantProfileDialogOpen, setAssistantProfileDialogOpen] = useState(false);
   const [selectedAssistantProfile, setSelectedAssistantProfile] = useState<Assistant | null>(null);
   
+  // New state for password reset
+  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState<string>('');
+  
+  // New state for client profile dialog
+  const [clientProfileDialogOpen, setClientProfileDialogOpen] = useState(false);
+  const [selectedClientProfile, setSelectedClientProfile] = useState<Client | null>(null);
+  
   const { manager, logout } = useManagerStore();
 
   // Function to open assistant profile dialog
@@ -256,6 +267,13 @@ const Dashboard: React.FC = () => {
       loadClients();
     }
   }, [currentTab]);
+
+  // Перезагружаем клиентов при изменении фильтра подписки
+  useEffect(() => {
+    if (currentTab === 3) {
+      loadClients();
+    }
+  }, [subscriptionFilter]);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('manager_token');
@@ -637,7 +655,7 @@ const Dashboard: React.FC = () => {
                 </Button>
               </Box>
               <Grid container spacing={4}>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} md={6}>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h4" fontWeight="bold" color="success.main" gutterBottom>
                       {overviewData.performance.monthly_revenue?.toLocaleString('ru-RU') || '0'} ₽
@@ -650,7 +668,7 @@ const Dashboard: React.FC = () => {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} md={6}>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h4" fontWeight="bold" color="warning.main" gutterBottom>
                       {overviewData.performance.assistant_utilization}%
@@ -660,19 +678,6 @@ const Dashboard: React.FC = () => {
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Процент активных ассистентов
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h4" fontWeight="bold" color="success.main" gutterBottom>
-                      {overviewData.performance.monthly_revenue?.toLocaleString('ru-RU') || '0'} ₽
-                    </Typography>
-                    <Typography variant="subtitle1" fontWeight={500}>
-                      Месячный доход
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      От {overviewData.clients.active_subscribers} подписчиков
                     </Typography>
                   </Box>
                 </Grid>
@@ -1055,28 +1060,7 @@ const Dashboard: React.FC = () => {
             </StatsCard>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <TrendingUpIcon color="info" sx={{ mr: 2, fontSize: 40 }} />
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="body2" fontWeight={500}>
-                      Уровень подписок
-                    </Typography>
-                    <Typography variant="h4" fontWeight="bold">
-                      {overviewData?.clients.total_active && overviewData?.clients.active_subscribers
-                        ? Math.round((overviewData.clients.active_subscribers / overviewData.clients.total_active) * 100)
-                        : 0}%
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Конверсия в подписки
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </StatsCard>
-          </Grid>
+
         </Grid>
 
         {/* Subscription Distribution Chart */}
@@ -1182,10 +1166,17 @@ const Dashboard: React.FC = () => {
         {/* Clients Table */}
         <EnhancedPaper>
           <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box>
               <Typography variant="h6" fontWeight="bold">
                 Список клиентов
               </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {subscriptionFilter === '' ? 'Показаны только клиенты с активными подписками' :
+                   subscriptionFilter === 'expired' ? 'Показаны клиенты с истекшими подписками' :
+                   'Показаны все клиенты (включая без подписки)'}
+                </Typography>
+              </Box>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <TextField
                   size="small"
@@ -1195,16 +1186,15 @@ const Dashboard: React.FC = () => {
                   sx={{ minWidth: 200 }}
                 />
                 <FormControl size="small" sx={{ minWidth: 150 }}>
-                  <InputLabel>Статус подписки</InputLabel>
+                  <InputLabel>Фильтр</InputLabel>
                   <Select
                     value={subscriptionFilter}
                     onChange={(e) => setSubscriptionFilter(e.target.value)}
-                    label="Статус подписки"
+                    label="Фильтр"
                   >
-                    <MenuItem value="">Все</MenuItem>
-                    <MenuItem value="active">Активные</MenuItem>
-                    <MenuItem value="expired">Истекшие</MenuItem>
-                    <MenuItem value="none">Без подписки</MenuItem>
+                    <MenuItem value="">Активные подписки</MenuItem>
+                    <MenuItem value="expired">Истекшие подписки</MenuItem>
+                    <MenuItem value="all">Все клиенты</MenuItem>
                   </Select>
                 </FormControl>
               </Box>
@@ -1217,7 +1207,6 @@ const Dashboard: React.FC = () => {
                 <TableRow>
                   <TableCell>ID</TableCell>
                   <TableCell>Имя</TableCell>
-                  <TableCell>Контакты</TableCell>
                   <TableCell>Подписка</TableCell>
                   <TableCell>Статус</TableCell>
                   <TableCell>Задач</TableCell>
@@ -1234,18 +1223,6 @@ const Dashboard: React.FC = () => {
                       <Typography variant="body2" fontWeight={500}>
                         {client.name}
                       </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box>
-                        <Typography variant="body2">
-                          {client.phone}
-                        </Typography>
-                        {client.email && (
-                          <Typography variant="caption" color="text.secondary">
-                            {client.email}
-                          </Typography>
-                        )}
-                      </Box>
                     </TableCell>
                     <TableCell>
                       {client.subscription ? (
@@ -1286,9 +1263,9 @@ const Dashboard: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       {client.assigned_assistants && client.assigned_assistants.length > 0 ? (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Box>
                           {client.assigned_assistants.map((assistant) => (
-                            <Box key={assistant.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box key={assistant.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                               <GradientChip
                                 label={assistant.name}
                                 size="small"
@@ -1301,11 +1278,14 @@ const Dashboard: React.FC = () => {
                               </Tooltip>
                             </Box>
                           ))}
+
                         </Box>
                       ) : (
+                        <Box>
                         <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                           Не назначен
                         </Typography>
+                        </Box>
                       )}
                     </TableCell>
                     <TableCell>
@@ -1315,15 +1295,26 @@ const Dashboard: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Tooltip title="Просмотр профиля">
+                        <Tooltip title="Просмотр профиля клиента">
                           <IconButton
                             size="small"
                             color="primary"
                             onClick={() => openClientProfileDialog(client)}
                           >
-                            <PersonIcon />
+                            <InfoIcon />
                           </IconButton>
                         </Tooltip>
+                        {client.assigned_assistants && client.assigned_assistants.length > 0 ? (
+                          <Tooltip title="Отменить назначение ассистента">
+                            <IconButton
+                              size="small"
+                              color="warning"
+                              onClick={() => handleUnassignClient(client)}
+                            >
+                              <UnassignIcon />
+                            </IconButton>
+                          </Tooltip>
+                        ) : (
                         <Tooltip title="Назначить ассистента">
                           <IconButton
                             size="small"
@@ -1333,6 +1324,7 @@ const Dashboard: React.FC = () => {
                             <SupervisorIcon />
                           </IconButton>
                         </Tooltip>
+                        )}
                         <Tooltip title="Управление подпиской">
                           <IconButton
                             size="small"
@@ -1367,7 +1359,14 @@ const Dashboard: React.FC = () => {
   const loadClients = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/management/clients', {
+      
+      // Формируем URL с фильтром подписки
+      let url = '/api/v1/management/clients';
+      if (subscriptionFilter) {
+        url += `?subscription_status=${subscriptionFilter}`;
+      }
+      
+      const response = await fetch(url, {
         headers: getAuthHeaders()
       });
       
@@ -1401,8 +1400,8 @@ const Dashboard: React.FC = () => {
   };
 
   const openClientProfileDialog = (client: Client) => {
-    // TODO: Implement client profile dialog
-    console.log('Open client profile:', client);
+    setSelectedClientProfile(client);
+    setClientProfileDialogOpen(true);
   };
 
   const openSubscriptionDialog = (client: Client) => {
@@ -1413,10 +1412,16 @@ const Dashboard: React.FC = () => {
   // New functions for assistant creation and client assignment
   const handleCreateAssistant = async () => {
     try {
+      // Prepare assistant data with clean phone number
+      const assistantDataToSend = {
+        ...newAssistant,
+        phone: getCleanPhoneNumber(newAssistant.phone) // Ensure clean format for API
+      };
+
       const response = await fetch('/api/v1/management/assistants/create', {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify(newAssistant)
+        body: JSON.stringify(assistantDataToSend)
       });
       
       if (response.ok) {
@@ -1441,6 +1446,11 @@ const Dashboard: React.FC = () => {
       console.error('Ошибка создания ассистента:', error);
       setError(error instanceof Error ? error.message : 'Ошибка создания ассистента');
     }
+  };
+
+  // Phone formatting handler for assistant creation
+  const handleAssistantPhoneChange = (value: string) => {
+    setNewAssistant({ ...newAssistant, phone: formatPhoneNumber(value) });
   };
 
   const handleAssignClient = async () => {
@@ -1472,29 +1482,71 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleUnassignClient = async (client: Client) => {
+    try {
+      const confirmUnassign = window.confirm(
+        `Вы уверены, что хотите отменить назначение ассистента для клиента "${client.name}"? Все активные задачи вернутся в маркетплейс.`
+      );
+      
+      if (!confirmUnassign) return;
+      
+      const response = await fetch(`/api/v1/management/clients/${client.id}/unassign-assistant`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setError(`Назначение ассистента отменено! Задач возвращено в маркетплейс: ${result.returned_tasks}`);
+        await loadClients(); // Refresh clients
+        await loadAssistants(); // Refresh assistants to update their task counts
+        setTimeout(() => setError(null), 3000);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Ошибка отмены назначения');
+      }
+    } catch (error) {
+      console.error('Ошибка отмены назначения:', error);
+      setError(error instanceof Error ? error.message : 'Ошибка отмены назначения');
+    }
+  };
+
   const openAssignClientDialog = async (client: Client) => {
     setSelectedClient(client);
     await loadAvailableAssistants('personal'); // Load available assistants for general assignment
     setAssignClientDialogOpen(true);
   };
 
-  // Filter and paginate clients
+  const handleResetPassword = async (assistantId: number) => {
+    try {
+      const response = await fetch(`/api/v1/management/assistants/${assistantId}/reset-password`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setNewPassword(result.new_password);
+        setResetPasswordDialogOpen(true);
+        setError(`Пароль успешно сброшен!`);
+        setTimeout(() => setError(null), 3000);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Ошибка сброса пароля');
+      }
+    } catch (error) {
+      console.error('Ошибка сброса пароля:', error);
+      setError(error instanceof Error ? error.message : 'Ошибка сброса пароля');
+    }
+  };
+
+  // Filter and paginate clients (API уже возвращает только клиентов с активными подписками по умолчанию)
   const filteredClients = clients.filter(client => {
     const matchesFilter = client.name.toLowerCase().includes(clientFilter.toLowerCase()) ||
                          client.phone.toLowerCase().includes(clientFilter.toLowerCase()) ||
                          (client.email && client.email.toLowerCase().includes(clientFilter.toLowerCase()));
     
-    if (!matchesFilter) return false;
-    
-    if (subscriptionFilter === 'active') {
-      return client.subscription && client.subscription.status === 'active';
-    } else if (subscriptionFilter === 'expired') {
-      return client.subscription && client.subscription.status === 'expired';
-    } else if (subscriptionFilter === 'none') {
-      return !client.subscription;
-    }
-    
-    return true;
+    return matchesFilter;
   });
 
   const paginatedClients = filteredClients.slice(
@@ -1667,7 +1719,12 @@ const Dashboard: React.FC = () => {
                 fullWidth
                 margin="normal"
                 value={newAssistant.phone}
-                onChange={(e) => setNewAssistant({ ...newAssistant, phone: e.target.value })}
+                onChange={(e) => handleAssistantPhoneChange(e.target.value)}
+                type="tel"
+                autoComplete="tel"
+                placeholder="+7 (999) 123-45-67"
+                helperText={newAssistant.phone && !isValidPhoneNumber(newAssistant.phone) ? "Введите корректный номер телефона" : ""}
+                error={newAssistant.phone !== '' && !isValidPhoneNumber(newAssistant.phone)}
               />
               <TextField
                 label="Пароль"
@@ -1705,6 +1762,13 @@ const Dashboard: React.FC = () => {
             <Button 
               onClick={handleCreateAssistant}
               variant="contained"
+              disabled={
+                !newAssistant.name || 
+                !newAssistant.phone || 
+                !newAssistant.email || 
+                !newAssistant.password || 
+                !isValidPhoneNumber(newAssistant.phone)
+              }
             >
               Создать ассистента
             </Button>
@@ -1781,23 +1845,37 @@ const Dashboard: React.FC = () => {
                             </Typography>
                           </Box>
                         )}
-                        {selectedAssistantProfile.password && (
                           <Box>
                             <Typography variant="body2" color="text.secondary">
                               Пароль
                             </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography variant="body1" fontWeight={500} sx={{ 
                               fontFamily: 'monospace',
-                              bgcolor: 'grey.100',
+                              bgcolor: selectedAssistantProfile.last_known_password ? 'success.50' : 'grey.100',
+                              color: selectedAssistantProfile.last_known_password ? 'success.main' : 'text.disabled',
                               p: 1,
                               borderRadius: 1,
                               border: '1px solid',
-                              borderColor: 'grey.300'
+                              borderColor: selectedAssistantProfile.last_known_password ? 'success.main' : 'grey.300'
                             }}>
-                              {selectedAssistantProfile.password}
+                              {selectedAssistantProfile.last_known_password || 'Неизвестен'}
                             </Typography>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => handleResetPassword(selectedAssistantProfile.id)}
+                              sx={{ minWidth: 'auto' }}
+                            >
+                              Сбросить
+                            </Button>
                           </Box>
+                          {selectedAssistantProfile.last_password_reset_at && (
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                              Последний сброс: {new Date(selectedAssistantProfile.last_password_reset_at).toLocaleString('ru-RU')}
+                            </Typography>
                         )}
+                        </Box>
                       </Box>
                     </EnhancedPaper>
                   </Grid>
@@ -1889,6 +1967,27 @@ const Dashboard: React.FC = () => {
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Клиент: {selectedClient?.name}
               </Typography>
+              
+              {/* Show current assignment warning */}
+              {selectedClient?.assigned_assistants && selectedClient.assigned_assistants.length > 0 && (
+                <Alert severity="warning" sx={{ mt: 2, mb: 2 }}>
+                  <Typography variant="body2">
+                    <strong>Внимание!</strong> У клиента уже есть назначенный ассистент: <strong>{selectedClient.assigned_assistants[0].name}</strong>
+                    <br />
+                    Каждый клиент может иметь только одного ассистента. 
+                    Назначение нового ассистента заменит текущего.
+                  </Typography>
+                </Alert>
+              )}
+              
+              {/* Show restriction info */}
+              <Box sx={{ p: 2, bgcolor: 'info.50', borderRadius: 2, border: '1px solid', borderColor: 'info.200', mb: 2 }}>
+                <Typography variant="body2" color="info.main">
+                  <InfoIcon sx={{ mr: 1, fontSize: 16, verticalAlign: 'middle' }} />
+                  Ограничение: на одного клиента можно назначить максимум одного ассистента
+                </Typography>
+              </Box>
+              
               <FormControl fullWidth margin="normal">
                 <InputLabel>Выбрать ассистента</InputLabel>
                 <Select
@@ -1929,8 +2028,288 @@ const Dashboard: React.FC = () => {
             <Button 
               onClick={handleAssignClient}
               variant="contained"
+              color={selectedClient?.assigned_assistants && selectedClient.assigned_assistants.length > 0 ? "warning" : "primary"}
             >
-              Назначить клиента
+              {selectedClient?.assigned_assistants && selectedClient.assigned_assistants.length > 0 
+                ? "Заменить ассистента" 
+                : "Назначить ассистента"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Password Reset Dialog */}
+        <Dialog
+          open={resetPasswordDialogOpen}
+          onClose={() => setResetPasswordDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <InfoIcon color="primary" />
+              <Typography variant="h6" fontWeight="bold">
+                Новый пароль создан
+              </Typography>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="success" sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  Пароль успешно сброшен! Сообщите новый пароль ассистенту.
+                </Typography>
+              </Alert>
+              
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2, border: '1px solid', borderColor: 'grey.300' }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Новый пароль:
+                </Typography>
+                <Typography variant="h6" fontWeight="bold" sx={{ 
+                  fontFamily: 'monospace',
+                  bgcolor: 'primary.50',
+                  p: 2,
+                  borderRadius: 1,
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                  color: 'primary.main',
+                  textAlign: 'center'
+                }}>
+                  {newPassword}
+                </Typography>
+              </Box>
+              
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'warning.50', borderRadius: 2, border: '1px solid', borderColor: 'warning.200' }}>
+                <Typography variant="body2" color="warning.main">
+                  <WarningIcon sx={{ mr: 1, fontSize: 16, verticalAlign: 'middle' }} />
+                  Скопируйте этот пароль сейчас! Он не будет показан повторно.
+                </Typography>
+              </Box>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => navigator.clipboard.writeText(newPassword)}
+              variant="outlined"
+              color="primary"
+            >
+              Скопировать пароль
+            </Button>
+            <Button onClick={() => setResetPasswordDialogOpen(false)} variant="contained">
+              Закрыть
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Client Profile Dialog */}
+        <Dialog
+          open={clientProfileDialogOpen}
+          onClose={() => setClientProfileDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <PersonIcon color="primary" />
+              <Typography variant="h6" fontWeight="bold">
+                Профиль клиента: {selectedClientProfile?.name}
+              </Typography>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            {selectedClientProfile && (
+              <Box sx={{ mt: 2 }}>
+                <Grid container spacing={3}>
+                  {/* Basic Information */}
+                  <Grid item xs={12} md={6}>
+                    <EnhancedPaper sx={{ p: 3 }}>
+                      <Typography variant="h6" fontWeight="bold" gutterBottom color="primary">
+                        Личная информация
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            ID клиента
+                          </Typography>
+                          <Typography variant="body1" fontWeight={500}>
+                            #{selectedClientProfile.id}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Полное имя
+                          </Typography>
+                          <Typography variant="body1" fontWeight={500}>
+                            {selectedClientProfile.name}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Номер телефона
+                          </Typography>
+                          <Typography variant="body1" fontWeight={500}>
+                            {selectedClientProfile.phone}
+                          </Typography>
+                        </Box>
+                        {selectedClientProfile.email && (
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              Email
+                            </Typography>
+                            <Typography variant="body1" fontWeight={500}>
+                              {selectedClientProfile.email}
+                            </Typography>
+                          </Box>
+                        )}
+                        {selectedClientProfile.telegram_username && (
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              Telegram алиас
+                            </Typography>
+                            <Typography variant="body1" fontWeight={500}>
+                              @{selectedClientProfile.telegram_username}
+                            </Typography>
+                          </Box>
+                        )}
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Дата регистрации
+                          </Typography>
+                          <Typography variant="body1" fontWeight={500}>
+                            {new Date(selectedClientProfile.created_at).toLocaleDateString('ru-RU', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </EnhancedPaper>
+                  </Grid>
+                  
+                  {/* Subscription Information */}
+                  <Grid item xs={12} md={6}>
+                    <EnhancedPaper sx={{ p: 3 }}>
+                      <Typography variant="h6" fontWeight="bold" gutterBottom color="primary">
+                        Информация о подписке
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {selectedClientProfile.subscription ? (
+                          <>
+                            <Box>
+                              <Typography variant="body2" color="text.secondary">
+                                Тип подписки
+                              </Typography>
+                              <Typography variant="body1" fontWeight={500}>
+                                {getSubscriptionPlanName(selectedClientProfile.subscription.plan)}
+                              </Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="body2" color="text.secondary">
+                                Статус
+                              </Typography>
+                              <Typography variant="body1" fontWeight={500} color={
+                                selectedClientProfile.subscription.status === 'active' ? 'success.main' : 'text.secondary'
+                              }>
+                                {getStatusText(selectedClientProfile.subscription.status)}
+                              </Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="body2" color="text.secondary">
+                                Начало подписки
+                              </Typography>
+                              <Typography variant="body1" fontWeight={500}>
+                                {new Date(selectedClientProfile.subscription.started_at).toLocaleDateString('ru-RU')}
+                              </Typography>
+                            </Box>
+                            {selectedClientProfile.subscription.expires_at && (
+                              <Box>
+                                <Typography variant="body2" color="text.secondary">
+                                  Окончание подписки
+                                </Typography>
+                                <Typography variant="body1" fontWeight={500}>
+                                  {new Date(selectedClientProfile.subscription.expires_at).toLocaleDateString('ru-RU')}
+                                </Typography>
+                              </Box>
+                            )}
+                            <Box>
+                              <Typography variant="body2" color="text.secondary">
+                                Автопродление
+                              </Typography>
+                              <Typography variant="body1" fontWeight={500}>
+                                {selectedClientProfile.subscription.auto_renew ? 'Включено' : 'Отключено'}
+                              </Typography>
+                            </Box>
+                          </>
+                        ) : (
+                          <Box sx={{ textAlign: 'center', py: 2 }}>
+                            <Typography variant="body1" color="text.secondary">
+                              У клиента нет активной подписки
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    </EnhancedPaper>
+                  </Grid>
+
+                  {/* Task Statistics */}
+                  <Grid item xs={12}>
+                    <EnhancedPaper sx={{ p: 3 }}>
+                      <Typography variant="h6" fontWeight="bold" gutterBottom color="primary">
+                        Статистика задач
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={6} md={3}>
+                          <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'primary.50', borderRadius: 2 }}>
+                            <Typography variant="h5" fontWeight="bold" color="primary.main">
+                              {selectedClientProfile.total_tasks}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Всего задач
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid item xs={6} md={3}>
+                          <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'warning.50', borderRadius: 2 }}>
+                            <Typography variant="h5" fontWeight="bold" color="warning.main">
+                              {selectedClientProfile.active_tasks}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Активных задач
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid item xs={6} md={3}>
+                          <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'success.50', borderRadius: 2 }}>
+                            <Typography variant="h5" fontWeight="bold" color="success.main">
+                              {selectedClientProfile.total_tasks - selectedClientProfile.active_tasks}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Завершено
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid item xs={6} md={3}>
+                          <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'info.50', borderRadius: 2 }}>
+                            <Typography variant="h5" fontWeight="bold" color="info.main">
+                              {selectedClientProfile.assigned_assistants?.length || 0}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Ассистентов
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    </EnhancedPaper>
+                  </Grid>
+                </Grid>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setClientProfileDialogOpen(false)}>
+              Закрыть
             </Button>
           </DialogActions>
         </Dialog>

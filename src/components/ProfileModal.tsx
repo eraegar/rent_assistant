@@ -28,6 +28,7 @@ import {
   AccountCircle,
   History,
   Star,
+  Telegram,
 } from '@mui/icons-material';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useTaskStore } from '../stores/useTaskStore';
@@ -199,6 +200,16 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ open, onClose }) => {
                       secondary={user?.phone || 'Не указано'}
                     />
                   </ListItem>
+
+                  <ListItem sx={{ px: 0 }}>
+                    <ListItemIcon>
+                      <Telegram color="primary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Telegram"
+                      secondary={user?.telegram_username ? `@${user.telegram_username}` : 'Не указано'}
+                    />
+                  </ListItem>
                 </List>
 
                 {isEditing && (
@@ -275,40 +286,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ open, onClose }) => {
                     </Box>
                   </Grid>
                 </Grid>
-              </EnhancedPaper>
-            </Grid>
-
-            {/* Recent Activity */}
-            <Grid item xs={12}>
-              <EnhancedPaper sx={{ p: 3 }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                  Последние задачи
-                </Typography>
-                {tasks.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                    Задач пока нет
-                  </Typography>
-                ) : (
-                  <List dense>
-                    {tasks.slice(0, 3).map((task) => (
-                      <ListItem key={task.id} divider>
-                        <ListItemText
-                          primary={task.title}
-                          secondary={task.description}
-                        />
-                        <GradientChip
-                          label={task.status === 'completed' ? 'Завершена' : 
-                                task.status === 'in_progress' ? 'В работе' : 
-                                'Ожидает'}
-                          size="small"
-                          color={task.status === 'completed' ? 'success' : 
-                                task.status === 'in_progress' ? 'info' : 
-                                'warning'}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
               </EnhancedPaper>
             </Grid>
           </Grid>

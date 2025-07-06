@@ -316,11 +316,11 @@ def complete_task(
     task = db.query(models.Task).filter(
         models.Task.id == task_id,
         models.Task.assistant_id == current_assistant.assistant_profile.id,
-        models.Task.status == models.TaskStatus.in_progress
+        models.Task.status.in_([models.TaskStatus.in_progress, models.TaskStatus.revision_requested])
     ).first()
     
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found or not in progress")
+        raise HTTPException(status_code=404, detail="Task not found or not available for completion")
     
     # Update task with completion data
     task.status = models.TaskStatus.completed
@@ -430,13 +430,13 @@ def reject_task(
     task = db.query(models.Task).filter(
         models.Task.id == task_id,
         models.Task.assistant_id == current_assistant.assistant_profile.id,
-        models.Task.status == models.TaskStatus.in_progress
+        models.Task.status.in_([models.TaskStatus.in_progress, models.TaskStatus.revision_requested])
     ).first()
     
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found or not assigned to you or not in progress"
+            detail="Task not found or not assigned to you or not available for rejection"
         )
     
     rejection_reason = rejection_data.get("reason", "").strip()
@@ -446,13 +446,12 @@ def reject_task(
             detail="Rejection reason is required"
         )
     
-    # Update task status and add rejection info
-    task.status = models.TaskStatus.rejected
+    # Return task to marketplace with pending status
+    task.status = models.TaskStatus.pending
     task.rejected_at = datetime.utcnow()
     task.rejection_reason = rejection_reason
     
     # Remove assistant assignment to return task to marketplace
-    # But keep the rejected status for tracking
     task.assistant_id = None
     task.claimed_at = None
     
@@ -495,7 +494,7 @@ def get_dashboard_stats(
     
     active_tasks = db.query(models.Task).filter(
         models.Task.assistant_id == assistant_id,
-        models.Task.status == models.TaskStatus.in_progress
+        models.Task.status.in_([models.TaskStatus.in_progress, models.TaskStatus.revision_requested])
     ).count()
     
     completed_tasks = db.query(models.Task).filter(

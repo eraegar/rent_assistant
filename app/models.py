@@ -102,6 +102,10 @@ class AssistantProfile(Base):
     total_tasks_completed = Column(Integer, default=0)
     average_rating = Column(Float, default=0.0)
     
+    # Last known password (for management purposes only)
+    last_known_password = Column(String, nullable=True)  # Stores password after creation/reset
+    last_password_reset_at = Column(DateTime, nullable=True)  # When password was last reset
+    
     # Relationships
     user = relationship("User", back_populates="assistant_profile")
     assigned_tasks = relationship("Task", back_populates="assistant")

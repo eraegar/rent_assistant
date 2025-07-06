@@ -18,6 +18,7 @@ import {
 import { BusinessCenter as BusinessIcon } from '@mui/icons-material';
 import { useManagerStore } from '../stores/useManagerStore';
 import { managerGradients, managerTheme } from '../theme';
+import { formatPhoneNumber, getCleanPhoneNumber, isValidPhoneNumber } from '../utils/phoneFormatter';
 
 const GradientPaper = styled(Paper)(({ theme }) => ({
   background: managerGradients.header,
@@ -79,6 +80,10 @@ const LoginScreen: React.FC = () => {
     setTabValue(newValue);
   };
 
+  const handlePhoneChange = (value: string) => {
+    setPhone(formatPhoneNumber(value));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -88,7 +93,13 @@ const LoginScreen: React.FC = () => {
       return;
     }
 
-    const success = await login(phone, password);
+    if (!isValidPhoneNumber(phone)) {
+      setError('Пожалуйста, введите корректный номер телефона');
+      return;
+    }
+
+    const cleanPhone = getCleanPhoneNumber(phone);
+    const success = await login(cleanPhone, password);
     if (!success) {
       setError('Неверный телефон или пароль');
     }
@@ -127,11 +138,13 @@ const LoginScreen: React.FC = () => {
                   fullWidth
                   label="Телефон"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
                   margin="normal"
                   type="tel"
                   autoComplete="tel"
                   placeholder="+7 (999) 123-45-67"
+                  helperText={phone && !isValidPhoneNumber(phone) ? "Введите корректный номер телефона" : ""}
+                  error={phone !== '' && !isValidPhoneNumber(phone)}
                 />
                 <TextField
                   fullWidth
@@ -148,7 +161,7 @@ const LoginScreen: React.FC = () => {
                   variant="contained"
                   size="large"
                   sx={{ mt: 3, mb: 2 }}
-                  disabled={loading}
+                  disabled={loading || !phone || !password || !isValidPhoneNumber(phone)}
                 >
                   {loading ? 'Вход...' : 'Войти в систему'}
                 </Button>
@@ -198,17 +211,17 @@ const LoginScreen: React.FC = () => {
                       alignItems: 'center',
                       justifyContent: 'center',
                       margin: '0 auto 16px',
-                      color: 'white',
-                      fontSize: '2rem',
                     }}
                   >
-                    📈
+                    <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
+                      📊
+                    </Typography>
                   </Box>
-                  <Typography variant="h6" gutterBottom fontWeight={600}>
-                    Бизнес-аналитика
+                  <Typography variant="h6" gutterBottom color="primary">
+                    Аналитика
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Детальная аналитика по задачам, ассистентам и клиентам в реальном времени
+                    Детальная статистика по задачам, ассистентам и клиентам
                   </Typography>
                 </CardContent>
               </FeatureCard>
@@ -222,51 +235,22 @@ const LoginScreen: React.FC = () => {
                       width: 64,
                       height: 64,
                       borderRadius: 2,
-                      background: managerTheme.palette.warning.main,
+                      background: managerTheme.palette.secondary.main,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       margin: '0 auto 16px',
-                      color: 'white',
-                      fontSize: '2rem',
                     }}
                   >
-                    👥
+                    <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
+                      👥
+                    </Typography>
                   </Box>
-                  <Typography variant="h6" gutterBottom fontWeight={600}>
-                    Управление командой
+                  <Typography variant="h6" gutterBottom color="secondary">
+                    Управление
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Контроль за ассистентами, назначение задач и мониторинг производительности
-                  </Typography>
-                </CardContent>
-              </FeatureCard>
-            </Grid>
-
-            <Grid item xs={12}>
-              <FeatureCard>
-                <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                  <Box
-                    sx={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: 2,
-                      background: managerTheme.palette.success.main,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto 16px',
-                      color: 'white',
-                      fontSize: '2rem',
-                    }}
-                  >
-                    💰
-                  </Box>
-                  <Typography variant="h6" gutterBottom fontWeight={600}>
-                    Финансовый контроль
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Отслеживание подписок, доходов и конверсии клиентов
+                    Контроль работы ассистентов и управление назначениями
                   </Typography>
                 </CardContent>
               </FeatureCard>

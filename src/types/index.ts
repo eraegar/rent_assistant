@@ -52,10 +52,16 @@ export interface Task {
   updated_at?: string;
   deadline?: string;
   result?: string;
+  completion_notes?: string;
+  revision_notes?: string;
+  client_rating?: number;
+  client_feedback?: string;
   assigned_assistant?: string;
   assistant_notes?: string;
   ai_suggestion?: string;
   attachments: string[];
+  approved_at?: string;
+  completed_at?: string;
 }
 
 export enum TaskType {
@@ -69,9 +75,23 @@ export enum TaskType {
 export enum TaskStatus {
   PENDING = 'pending',
   IN_PROGRESS = 'in_progress',
-  WAITING_CLIENT = 'waiting_client',
   COMPLETED = 'completed',
-  CANCELLED = 'cancelled'
+  APPROVED = 'approved',
+  REVISION_REQUESTED = 'revision_requested',
+  CANCELLED = 'cancelled',
+  REJECTED = 'rejected',
+  WAITING_CLIENT = 'waiting_client'
+}
+
+// Новые интерфейсы для работы с оценкой и доработкой
+export interface TaskApproval {
+  rating: number; // 1-5 звезд
+  feedback: string;
+}
+
+export interface TaskRevision {
+  feedback: string;
+  additional_requirements?: string;
 }
 
 export enum UserStatus {
