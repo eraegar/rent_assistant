@@ -205,7 +205,7 @@ A comprehensive solution for managing rental properties through Telegram integra
 
 **Importance**: Protects sensitive user data (phone numbers, payment plans, emails) and prevents unauthorized account access. Essential for legal compliance and user trust.
 
-Quality Attribute Scenario:
+**Quality Attribute Scenario**:
 - **Source**: Unauthorized user attempting access
 - **Stimulus**: Attempt to access private account data
 - **Artifact**: Authentication/authorization system
