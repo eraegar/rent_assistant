@@ -18,6 +18,9 @@ interface ManagerStore {
   refreshProfile: () => Promise<void>;
 }
 
+// API base URL
+const API_BASE_URL = 'https://api.rent-assistant.ru';
+
 export const useManagerStore = create<ManagerStore>()(
   persist(
     (set, get) => ({
@@ -29,7 +32,7 @@ export const useManagerStore = create<ManagerStore>()(
       login: async (phone: string, password: string): Promise<boolean> => {
         set({ loading: true });
         try {
-          const response = await fetch('/api/v1/management/auth/login', {
+          const response = await fetch(`${API_BASE_URL}/api/v1/management/auth/login`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -73,7 +76,7 @@ export const useManagerStore = create<ManagerStore>()(
         if (!token) return;
 
         try {
-          const response = await fetch('/api/v1/management/profile', {
+          const response = await fetch(`${API_BASE_URL}/api/v1/management/profile`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
