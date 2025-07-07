@@ -15,7 +15,7 @@ interface ManagerStore {
   loading: boolean;
   login: (phone: string, password: string) => Promise<boolean>;
   logout: () => void;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<Manager | null>;
 }
 
 // API base URL
@@ -44,12 +44,14 @@ export const useManagerStore = create<ManagerStore>()(
             const data = await response.json();
             const token = data.access_token;
             
-            set({ token, isAuthenticated: true });
+            // Сохраняем токен в localStorage перед обновлением профиля
             localStorage.setItem('manager_token', token);
+            set({ token }); // Устанавливаем токен в состояние
             
-            // Get profile
-            await get().refreshProfile();
-            set({ loading: false });
+            // Обновляем профиль и получаем данные менеджера
+            const manager = await get().refreshProfile();
+            
+            set({ manager, isAuthenticated: true, loading: false });
             return true;
           } else {
             set({ loading: false });
@@ -71,9 +73,9 @@ export const useManagerStore = create<ManagerStore>()(
         });
       },
 
-      refreshProfile: async () => {
+      refreshProfile: async (): Promise<Manager | null> => {
         const token = get().token || localStorage.getItem('manager_token');
-        if (!token) return;
+        if (!token) return null;
 
         try {
           const response = await fetch(`${API_BASE_URL}/api/v1/management/profile`, {
@@ -86,13 +88,16 @@ export const useManagerStore = create<ManagerStore>()(
           if (response.ok) {
             const manager = await response.json();
             set({ manager, isAuthenticated: true, token });
+            return manager;
           } else {
             // Token invalid
             get().logout();
+            return null;
           }
         } catch (error) {
           console.error('Profile refresh error:', error);
           get().logout();
+          return null;
         }
       },
     }),
