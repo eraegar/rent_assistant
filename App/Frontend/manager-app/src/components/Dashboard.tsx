@@ -1493,15 +1493,13 @@ const Dashboard: React.FC = () => {
       
       if (!confirmUnassign) return;
       
-      // Find the assignment ID from client's assigned assistants
-      if (!client.assigned_assistants || client.assigned_assistants.length === 0) {
-        setError('У клиента нет назначенных ассистентов');
-        return;
+      // Get the assignment ID from the client's assigned assistants
+      const assignment = client.assigned_assistants?.[0];
+      if (!assignment) {
+        throw new Error('Не найдено назначение для отмены');
       }
       
-      const assignmentId = client.assigned_assistants[0].assignment_id;
-      
-      const response = await fetch(`${API_BASE_URL}/api/v1/management/assignments/${assignmentId}/deactivate`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/management/assignments/${assignment.assignment_id}/deactivate`, {
         method: 'PUT',
         headers: getAuthHeaders()
       });
