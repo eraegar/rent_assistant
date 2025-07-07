@@ -1460,7 +1460,7 @@ const Dashboard: React.FC = () => {
     if (!selectedClient || !assignmentAssistant) return;
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/management/clients/${selectedClient.id}/assign`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/management/clients/${selectedClient.id}/assign-assistant`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ assistant_id: assignmentAssistant })
@@ -1493,14 +1493,22 @@ const Dashboard: React.FC = () => {
       
       if (!confirmUnassign) return;
       
-      const response = await fetch(`${API_BASE_URL}/api/v1/management/clients/${client.id}/unassign`, {
-        method: 'DELETE',
+      // Find the assignment ID from client's assigned assistants
+      if (!client.assigned_assistants || client.assigned_assistants.length === 0) {
+        setError('У клиента нет назначенных ассистентов');
+        return;
+      }
+      
+      const assignmentId = client.assigned_assistants[0].assignment_id;
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/management/assignments/${assignmentId}/deactivate`, {
+        method: 'PUT',
         headers: getAuthHeaders()
       });
       
       if (response.ok) {
         const result = await response.json();
-        setError(`Назначение ассистента отменено! Задач возвращено в маркетплейс: ${result.returned_tasks}`);
+        setError(`Назначение ассистента отменено! ${result.message}`);
         await loadClients(); // Refresh clients
         await loadAssistants(); // Refresh assistants to update their task counts
         setTimeout(() => setError(null), 3000);
