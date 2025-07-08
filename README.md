@@ -278,8 +278,8 @@ The following sequence diagram shows the property creation workflow:
 
 **Authentication Credentials**:
 - **Manager Access**: https://manager.rent-assistant.ru
-  - Username: `manager`
-  - Password: `manager123`
+  - Username: `79999999999`
+  - Password: `admin123`
 - **Assistant Access**: https://assistant.rent-assistant.ru
   - Username: `assistant`
   - Password: `assistant123`
