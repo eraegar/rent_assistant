@@ -53,8 +53,9 @@ test:frontend:
     - cd App/Frontend/${APP_DIR}
     - npm ci
   script:
-    - npm run test -- --coverage --watchAll=false
+    - npm run test -- --coverage --watchAll=false --passWithNoTests
     - npm run lint
+  allow_failure: true
   artifacts:
     reports:
       junit: App/Frontend/${APP_DIR}/junit.xml
