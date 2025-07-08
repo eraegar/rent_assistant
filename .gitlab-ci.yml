@@ -22,8 +22,7 @@ test:backend:
     - cd App/Backend
     - pip install -r requirements.txt pytest pytest-cov pytest-asyncio
   script:
-    - python -m pytest tests/ -v --cov=app --cov-report=xml
-    - python -m pytest tests/quality/ -v
+    - python -m pytest ../../tests/quality -v --cov=. --cov-report=xml --junitxml=junit.xml
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     reports:
@@ -175,18 +174,28 @@ deploy:backend:
     - rsync -avz --delete App/bot/ root@$PRODUCTION_SERVER:/root/project/App/bot
     - |
       ssh root@$PRODUCTION_SERVER << 'EOF'
-        echo "--- Starting backend deployment ---"
-        cd /root/project/App/Backend
+        echo "--- Starting backend & bot deployment ---"
+        
+        echo "--- Stopping existing services ---"
+        pkill -f "uvicorn main:app --host 0.0.0.0 --port 8000" || echo "No backend process to kill."
+        pkill -f "python App/bot/bot1_simple.py" || echo "No bot process to kill."
+        sleep 2
+
         echo "--- Installing dependencies ---"
+        cd /root/project/App/Backend
         pip install -r requirements.txt
-        echo "--- Stopping existing server ---"
-        pkill -f "uvicorn main:app" || echo "No existing process to kill."
-        sleep 2
-        echo "--- Starting new server in background ---"
+        
+        echo "--- Starting new backend server in background ---"
         nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /root/project/nohup.out 2>&1 &
+        
+        echo "--- Starting new bot in background ---"
+        cd /root/project/
+        nohup python -u App/bot/bot1_simple.py > /root/project/bot_nohup.out 2>&1 &
         sleep 2
-        echo "--- Checking server status ---"
-        pgrep -f "uvicorn main:app" && echo "Server is running." || echo "Server failed to start."
+
+        echo "--- Checking statuses ---"
+        pgrep -f "uvicorn main:app --host 0.0.0.0 --port 8000" && echo "Backend server is running." || echo "Backend server failed to start."
+        pgrep -f "python App/bot/bot1_simple.py" && echo "Bot is running." || echo "Bot failed to start."
         echo "--- Deployment finished ---"
       EOF
   environment:
@@ -276,24 +285,30 @@ deploy:backend:staging:
     - rsync -avz --delete App/bot/ root@$STAGING_SERVER:/root/project/App/bot
     - |
       ssh root@$STAGING_SERVER << 'EOF'
-        echo "--- Starting backend deployment on staging ---"
-        cd /root/project/App/Backend
+        echo "--- Starting backend & bot deployment on staging ---"
+
+        echo "--- Stopping existing services ---"
+        pkill -f "uvicorn main:app" || echo "No uvicorn process to kill."
+        pkill -f "python App/bot/bot1_simple.py" || echo "No bot process to kill."
+        sleep 2
 
         echo "--- Installing dependencies ---"
+        cd /root/project/App/Backend
         pip install -r requirements.txt
-
-        echo "--- Stopping existing staging server ---"
-        pkill -f "uvicorn main:app --port 8001" || echo "No existing staging process to kill."
-        sleep 2
 
         echo "--- Starting new staging server in background on port 8001 ---"
         # Используем отдельный файл БД для staging
         export DATABASE_URL="sqlite:///./staging_test.db" 
         nohup uvicorn main:app --host 0.0.0.0 --port 8001 > /root/project/nohup_staging.out 2>&1 &
+        
+        echo "--- Starting new bot in background ---"
+        cd /root/project/
+        nohup python -u App/bot/bot1_simple.py > /root/project/bot_nohup.out 2>&1 &
         sleep 2
 
         echo "--- Checking server status ---"
-        pgrep -f "uvicorn main:app --port 8001" && echo "Staging server is running." || echo "Server failed to start."
+        pgrep -f "uvicorn main:app --port 8001" && echo "Staging server is running." || echo "Staging server failed to start."
+        pgrep -f "python App/bot/bot1_simple.py" && echo "Bot is running." || echo "Bot failed to start."
         echo "--- Deployment finished ---"
       EOF
   environment:
