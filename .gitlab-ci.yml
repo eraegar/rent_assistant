@@ -17,11 +17,19 @@ test:backend:
   services:
     - postgres:13
   variables:
-    DATABASE_URL: postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@postgres:5432/$POSTGRES_DB
+    POSTGRES_DB: test_db
+    POSTGRES_USER: test_user
+    POSTGRES_PASSWORD: test_password
+    POSTGRES_HOST_AUTH_METHOD: trust
+    DATABASE_URL: "postgresql://test_user:test_password@postgres:5432/test_db"
+    BOT_TOKEN: "test_token"
+    WEBHOOK_URL: "https://test.com"
+    MANAGER_API_URL: "http://localhost:8000"
   before_script:
     - cd App/Backend
     - pip install -r requirements.txt pytest pytest-cov pytest-asyncio PyJWT unittest2 requests httpx pytest-asyncio pytest-timeout pytest-xdist
     - export PYTHONPATH=$PYTHONPATH:$(pwd)/../bot:$(pwd)/../../Quality
+    - python -c "from database import Base, engine; Base.metadata.create_all(bind=engine)"
   script:
     - python -m pytest ../../Quality -v --cov=. --cov-report=xml --junitxml=junit.xml
   coverage: '/TOTAL.*\s+(\d+%)$/'
