@@ -156,7 +156,9 @@ test:e2e:
     - if: $CI_COMMIT_BRANCH == 'main' || $CI_COMMIT_BRANCH == 'develop'
 
 # --- DEPLOY STAGE ---
-deploy:production:
+
+# [Изменено] Деплой только бэкенда и бота на сервер
+deploy:backend:
   stage: deploy
   image: alpine:latest
   before_script:
@@ -167,31 +169,135 @@ deploy:production:
     - chmod 700 ~/.ssh
     - ssh-keyscan -H $PRODUCTION_SERVER >> ~/.ssh/known_hosts
   script:
-    - rsync -avz --delete App/ root@$PRODUCTION_SERVER:/root/project/App
-    - ssh root@$PRODUCTION_SERVER "cd /root/project/App && ./deploy.sh"
+    # Копируем только нужные для бэкенда части
+    - rsync -avz --delete App/Backend/ root@$PRODUCTION_SERVER:/root/project/App/Backend
+    - rsync -avz --delete App/bot/ root@$PRODUCTION_SERVER:/root/project/App/bot
+    - |
+      ssh root@$PRODUCTION_SERVER << 'EOF'
+        echo "--- Starting backend deployment ---"
+        cd /root/project/App/Backend
+        echo "--- Installing dependencies ---"
+        pip install -r requirements.txt
+        echo "--- Stopping existing server ---"
+        pkill -f "uvicorn main:app" || echo "No existing process to kill."
+        sleep 2
+        echo "--- Starting new server in background ---"
+        nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /root/project/nohup.out 2>&1 &
+        sleep 2
+        echo "--- Checking server status ---"
+        pgrep -f "uvicorn main:app" && echo "Server is running." || echo "Server failed to start."
+        echo "--- Deployment finished ---"
+      EOF
   environment:
     name: production
-    url: https://rent-assistant.ru
+    url: https://api.rent-assistant.ru
   rules:
     - if: $CI_COMMIT_BRANCH == 'main'
       when: manual
 
-deploy:staging:
+# [Новое] Деплой фронтенд-приложений в Vercel
+deploy:frontend:
+  stage: deploy
+  image: node:18
+  parallel:
+    matrix:
+      - APP_DIR: ["client-app", "manager-app", "assistant-app"]
+  before_script:
+    - npm install -g vercel
+  script:
+    - cd App/Frontend/${APP_DIR}
+    # Устанавливаем правильный Project ID для каждого приложения
+    - |
+      if [ "$APP_DIR" = "client-app" ]; then
+        PROJECT_ID=$VERCEL_PROJECT_ID_CLIENT
+      elif [ "$APP_DIR" = "manager-app" ]; then
+        PROJECT_ID=$VERCEL_PROJECT_ID_MANAGER
+      elif [ "$APP_DIR" = "assistant-app" ]; then
+        PROJECT_ID=$VERCEL_PROJECT_ID_ASSISTANT
+      fi
+    # Создаем .vercel/project.json для связи с проектом Vercel
+    - mkdir -p .vercel
+    - echo "{\"projectId\":\"$PROJECT_ID\",\"orgId\":\"$VERCEL_ORG_ID\"}" > .vercel/project.json
+    # Создаем build-артефакты
+    - npm ci
+    - npm run build
+    # Деплоим в Vercel. Флаг --scope не нужен, т.к. orgId есть в project.json
+    - vercel --prod --token $VERCEL_TOKEN --yes
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+
+# Деплой фронтенда на staging (Vercel Preview)
+deploy:frontend:staging:
+  stage: deploy
+  image: node:18
+  parallel:
+    matrix:
+      - APP_DIR: ["client-app", "manager-app", "assistant-app"]
+  before_script:
+    - npm install -g vercel
+  script:
+    - cd App/Frontend/${APP_DIR}
+    # Устанавливаем правильный Project ID для каждого приложения
+    - |
+      if [ "$APP_DIR" = "client-app" ]; then
+        PROJECT_ID=$VERCEL_PROJECT_ID_CLIENT
+      elif [ "$APP_DIR" = "manager-app" ]; then
+        PROJECT_ID=$VERCEL_PROJECT_ID_MANAGER
+      elif [ "$APP_DIR" = "assistant-app" ]; then
+        PROJECT_ID=$VERCEL_PROJECT_ID_ASSISTANT
+      fi
+    # Создаем .vercel/project.json для связи с проектом Vercel
+    - mkdir -p .vercel
+    - echo "{\"projectId\":\"$PROJECT_ID\",\"orgId\":\"$VERCEL_ORG_ID\"}" > .vercel/project.json
+    # Создаем build-артефакты
+    - npm ci
+    - npm run build
+    # Деплоим в Vercel как preview. Vercel CLI автоматически определит, что это не продакшн.
+    - vercel --token $VERCEL_TOKEN --yes
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'develop'
+
+
+# Деплой бэкенда на staging
+deploy:backend:staging:
   stage: deploy
   image: alpine:latest
   before_script:
     - apk add --no-cache openssh-client rsync
     - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" | ssh-add -
+    - echo "$STAGING_SSH_PRIVATE_KEY" | ssh-add -
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - ssh-keyscan -H $STAGING_SERVER >> ~/.ssh/known_hosts
   script:
-    - rsync -avz --delete App/ root@$STAGING_SERVER:/root/project/App
-    - ssh root@$STAGING_SERVER "cd /root/project/App && ./deploy.sh"
+    # Копируем только бэкенд
+    - rsync -avz --delete App/Backend/ root@$STAGING_SERVER:/root/project/App/Backend
+    - rsync -avz --delete App/bot/ root@$STAGING_SERVER:/root/project/App/bot
+    - |
+      ssh root@$STAGING_SERVER << 'EOF'
+        echo "--- Starting backend deployment on staging ---"
+        cd /root/project/App/Backend
+
+        echo "--- Installing dependencies ---"
+        pip install -r requirements.txt
+
+        echo "--- Stopping existing staging server ---"
+        pkill -f "uvicorn main:app --port 8001" || echo "No existing staging process to kill."
+        sleep 2
+
+        echo "--- Starting new staging server in background on port 8001 ---"
+        # Используем отдельный файл БД для staging
+        export DATABASE_URL="sqlite:///./staging_test.db" 
+        nohup uvicorn main:app --host 0.0.0.0 --port 8001 > /root/project/nohup_staging.out 2>&1 &
+        sleep 2
+
+        echo "--- Checking server status ---"
+        pgrep -f "uvicorn main:app --port 8001" && echo "Staging server is running." || echo "Staging server failed to start."
+        echo "--- Deployment finished ---"
+      EOF
   environment:
     name: staging
-    url: https://staging.rent-assistant.ru
+    url: https://api.staging.rent-assistant.ru
   rules:
     - if: $CI_COMMIT_BRANCH == 'develop'
       when: manual
