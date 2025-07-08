@@ -26,9 +26,9 @@ test:backend:
     WEBHOOK_URL: "https://test.com"
     MANAGER_API_URL: "http://localhost:8000"
   before_script:
+    - pip install -e .
     - cd App/Backend
     - pip install -r requirements.txt pytest pytest-cov pytest-asyncio PyJWT unittest2 requests httpx pytest-asyncio pytest-timeout pytest-xdist
-    - export PYTHONPATH=$PYTHONPATH:$(pwd)/../bot:$(pwd)/../../Quality
     - python -c "from database import Base, engine; Base.metadata.create_all(bind=engine)"
   script:
     - python -m pytest ../../Quality -v --cov=. --cov-report=xml --junitxml=junit.xml
