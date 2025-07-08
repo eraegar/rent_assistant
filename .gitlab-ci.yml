@@ -22,12 +22,11 @@ test:backend:
     - cd App/Backend
     - pip install -r requirements.txt pytest pytest-cov pytest-asyncio
   script:
-    - python -m pytest tests/ -v --cov=app --cov-report=xml
-    - python -m pytest tests/quality/ -v
+    - python -m pytest ../../tests/quality -v --cov=. --cov-report=xml --junitxml=junit.xml
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     reports:
-      cobertura: App/Backend/coverage.xml
+      junit: App/Backend/junit.xml
     paths:
       - App/Backend/coverage.xml
   rules:
@@ -50,7 +49,8 @@ test:frontend:
   artifacts:
     reports:
       junit: App/Frontend/${APP_DIR}/junit.xml
-      cobertura: App/Frontend/${APP_DIR}/coverage/cobertura-coverage.xml
+    paths:
+      - App/Frontend/${APP_DIR}/coverage/cobertura-coverage.xml
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == 'main' || $CI_COMMIT_BRANCH == 'develop'
@@ -292,7 +292,7 @@ deploy:backend:staging:
         sleep 2
 
         echo "--- Checking server status ---"
-        pgrep -f "uvicorn main:app --port 8001" && echo "Staging server is running." || echo "Staging server failed to start."
+        pgrep -f "uvicorn main:app --port 8001" && echo "Staging server is running." || echo "Server failed to start."
         echo "--- Deployment finished ---"
       EOF
   environment:
