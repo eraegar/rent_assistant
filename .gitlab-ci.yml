@@ -20,9 +20,9 @@ test:backend:
     DATABASE_URL: postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@postgres:5432/$POSTGRES_DB
   before_script:
     - cd App/Backend
-    - pip install -r requirements.txt pytest pytest-cov pytest-asyncio PyJWT
+    - pip install -r requirements.txt pytest pytest-cov pytest-asyncio PyJWT unittest2 requests httpx pytest-asyncio pytest-timeout pytest-xdist
   script:
-    - python -m pytest tests/quality -v --cov=. --cov-report=xml --junitxml=junit.xml
+    - python -m pytest ../../Quality -v --cov=. --cov-report=xml --junitxml=junit.xml
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     reports:
