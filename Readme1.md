@@ -1,4 +1,4 @@
-### Rent Assistant System
+### Assistent For Rent
 ![Project logo](App/afrlogo.jpg)
 
 **Сервис для аренды личного или бизнес ассистента для выполнения задач**
