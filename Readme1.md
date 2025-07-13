@@ -1,6 +1,5 @@
-```markdown
-# Rent Assistant System
-![Rent Assistant Logo](App/afrlogo.jpg)
+### Rent Assistant System
+App/afrlogo.jpg
 
 **Управление арендой недвижимости с телеграм-интеграцией для менеджеров, ассистентов и клиентов**
 
