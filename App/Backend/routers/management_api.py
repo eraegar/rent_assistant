@@ -76,24 +76,17 @@ def register_manager(manager_data: dict, db: Session = Depends(get_db)):
     )
 
 @router.post("/auth/login")
-def login_manager(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+def login_manager(credentials: dict, db: Session = Depends(get_db)):
     """Manager login"""
-    print(f"🔐 Manager login attempt for phone: {credentials.phone}")
     user = db.query(models.User).filter(
-        models.User.phone == credentials.phone,
+        models.User.phone == credentials["phone"],
         models.User.role == models.UserRole.manager
     ).first()
     
-    if not user:
-        print(f"❌ Manager not found for phone: {credentials.phone}")
-        raise HTTPException(status_code=400, detail="Incorrect phone or password")
-
-    if not auth.verify_password(credentials.password, user.password_hash):
-        print(f"❌ Password verification failed for user: {user.id}")
+    if not user or not auth.verify_password(credentials["password"], user.password_hash):
         raise HTTPException(status_code=400, detail="Incorrect phone or password")
     
     token = auth.create_access_token({"user_id": user.id, "role": "manager"})
-    print(f"✅ Manager login successful for user: {user.id}")
     return {"access_token": token, "token_type": "bearer"}
 
 @router.get("/profile", response_model=schemas.ManagerOut)
@@ -216,10 +209,6 @@ def get_all_tasks(
     client_id: Optional[int] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    search: Optional[str] = None,
-    is_overdue: Optional[bool] = None,
-    rating_min: Optional[int] = None,
-    rating_max: Optional[int] = None,
     current_manager: models.User = Depends(get_current_manager),
     db: Session = Depends(get_db)
 ):
@@ -253,34 +242,6 @@ def get_all_tasks(
             query = query.filter(models.Task.created_at <= to_date)
         except ValueError:
             pass
-    
-    # Search filter
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            models.Task.title.like(search_term) | 
-            models.Task.description.like(search_term)
-        )
-    
-    # Overdue filter
-    if is_overdue is not None:
-        current_time = datetime.utcnow()
-        if is_overdue:
-            query = query.filter(
-                models.Task.deadline < current_time,
-                models.Task.status.in_([models.TaskStatus.pending, models.TaskStatus.in_progress])
-            )
-        else:
-            query = query.filter(
-                (models.Task.deadline >= current_time) | (models.Task.deadline.is_(None))
-            )
-    
-    # Rating filters
-    if rating_min is not None:
-        query = query.filter(models.Task.client_rating >= rating_min)
-    
-    if rating_max is not None:
-        query = query.filter(models.Task.client_rating <= rating_max)
     
     # Get total count for pagination
     total_count = query.count()
@@ -727,44 +688,20 @@ def assign_client_to_assistant(
     if assistant.current_active_tasks >= 5:
         raise HTTPException(status_code=400, detail="Assistant is at maximum capacity (5 active tasks)")
     
-    # Check if this specific assistant is already assigned to this client
+    # Check if client already has any active assignment (one assistant per client rule)
     existing_assignment = db.query(models.ClientAssistantAssignment).filter(
         models.ClientAssistantAssignment.client_id == client_id,
-        models.ClientAssistantAssignment.assistant_id == assistant_id,
         models.ClientAssistantAssignment.status == models.AssignmentStatus.active
     ).first()
     
     if existing_assignment:
+        existing_assistant = db.query(models.AssistantProfile).filter(
+            models.AssistantProfile.id == existing_assignment.assistant_id
+        ).first()
         raise HTTPException(
             status_code=400, 
-            detail=f"This assistant is already assigned to this client"
+            detail=f"Client is already assigned to assistant '{existing_assistant.user.name}'. Each client can have only one assistant."
         )
-    
-    # Check if we're setting a primary assistant
-    is_primary = assignment_data.get("is_primary", False)
-    
-    # If setting as primary, deactivate other primary assignments for this client
-    if is_primary:
-        existing_primary = db.query(models.ClientAssistantAssignment).filter(
-            models.ClientAssistantAssignment.client_id == client_id,
-            models.ClientAssistantAssignment.is_primary == True,
-            models.ClientAssistantAssignment.status == models.AssignmentStatus.active
-        ).first()
-        
-        if existing_primary:
-            existing_primary.is_primary = False
-            print(f"🔄 Removed primary status from assistant {existing_primary.assistant_id}")
-    
-    # If no primary assistant exists and this is the first assignment, make it primary
-    primary_count = db.query(models.ClientAssistantAssignment).filter(
-        models.ClientAssistantAssignment.client_id == client_id,
-        models.ClientAssistantAssignment.is_primary == True,
-        models.ClientAssistantAssignment.status == models.AssignmentStatus.active
-    ).count()
-    
-    if primary_count == 0:
-        is_primary = True
-        print("📝 Setting as primary assistant since none exist")
     
     # Determine allowed task types based on assistant specialization and client subscription
     allowed_task_types = []
@@ -792,8 +729,7 @@ def assign_client_to_assistant(
         assistant_id=assistant_id,
         status=models.AssignmentStatus.active,
         created_by=current_manager.manager_profile.id,
-        allowed_task_types=json.dumps(allowed_task_types),
-        is_primary=is_primary
+        allowed_task_types=json.dumps(allowed_task_types)
     )
     
     db.add(assignment)
@@ -830,124 +766,12 @@ def assign_client_to_assistant(
         "assignment_id": assignment.id,
         "assigned_tasks": assigned_tasks,
         "allowed_task_types": allowed_task_types,
-        "is_primary": is_primary,
         "assistant": {
             "id": assistant.id,
             "name": assistant.user.name,
             "specialization": assistant.specialization.value,
             "current_active_tasks": assistant.current_active_tasks
         }
-    }
-
-@router.put("/clients/{client_id}/primary-assistant")
-def set_primary_assistant(
-    client_id: int,
-    assignment_data: dict,
-    current_manager: models.User = Depends(get_current_manager),
-    db: Session = Depends(get_db)
-):
-    """Set or change the primary assistant for a client"""
-    
-    # Find client
-    client = db.query(models.ClientProfile).filter(models.ClientProfile.id == client_id).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
-    
-    assistant_id = assignment_data.get("assistant_id")
-    if not assistant_id:
-        raise HTTPException(status_code=400, detail="Assistant ID is required")
-    
-    # Check if this assistant is assigned to this client
-    target_assignment = db.query(models.ClientAssistantAssignment).filter(
-        models.ClientAssistantAssignment.client_id == client_id,
-        models.ClientAssistantAssignment.assistant_id == assistant_id,
-        models.ClientAssistantAssignment.status == models.AssignmentStatus.active
-    ).first()
-    
-    if not target_assignment:
-        raise HTTPException(
-            status_code=400, 
-            detail="This assistant is not assigned to this client"
-        )
-    
-    # Remove primary status from current primary assistant
-    current_primary = db.query(models.ClientAssistantAssignment).filter(
-        models.ClientAssistantAssignment.client_id == client_id,
-        models.ClientAssistantAssignment.is_primary == True,
-        models.ClientAssistantAssignment.status == models.AssignmentStatus.active
-    ).first()
-    
-    if current_primary and current_primary.id != target_assignment.id:
-        current_primary.is_primary = False
-        print(f"🔄 Removed primary status from assistant {current_primary.assistant_id}")
-    
-    # Set new primary assistant
-    target_assignment.is_primary = True
-    db.commit()
-    
-    return {
-        "success": True,
-        "message": f"Primary assistant updated for client {client.user.name}",
-        "primary_assistant_id": assistant_id,
-        "assignment_id": target_assignment.id
-    }
-
-@router.put("/clients/{client_id}/unassign-assistant/{assistant_id}")
-def unassign_assistant_from_client(
-    client_id: int,
-    assistant_id: int,
-    current_manager: models.User = Depends(get_current_manager),
-    db: Session = Depends(get_db)
-):
-    """Remove assistant assignment from client"""
-    
-    # Find the assignment
-    assignment = db.query(models.ClientAssistantAssignment).filter(
-        models.ClientAssistantAssignment.client_id == client_id,
-        models.ClientAssistantAssignment.assistant_id == assistant_id,
-        models.ClientAssistantAssignment.status == models.AssignmentStatus.active
-    ).first()
-    
-    if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
-    
-    was_primary = assignment.is_primary
-    
-    # Deactivate assignment
-    assignment.status = models.AssignmentStatus.inactive
-    
-    # If this was the primary assistant, promote another assistant to primary
-    if was_primary:
-        other_assignment = db.query(models.ClientAssistantAssignment).filter(
-            models.ClientAssistantAssignment.client_id == client_id,
-            models.ClientAssistantAssignment.status == models.AssignmentStatus.active,
-            models.ClientAssistantAssignment.id != assignment.id
-        ).first()
-        
-        if other_assignment:
-            other_assignment.is_primary = True
-            print(f"🔄 Promoted assistant {other_assignment.assistant_id} to primary")
-    
-    # Move any active tasks from this assistant back to marketplace
-    active_tasks = db.query(models.Task).filter(
-        models.Task.client_id == client_id,
-        models.Task.assistant_id == assistant_id,
-        models.Task.status == models.TaskStatus.in_progress
-    ).all()
-    
-    for task in active_tasks:
-        task.assistant_id = None
-        task.status = models.TaskStatus.pending
-        task.claimed_at = None
-        print(f"📋 Moved task {task.id} back to marketplace")
-    
-    db.commit()
-    
-    return {
-        "success": True,
-        "message": f"Assistant {assistant_id} unassigned from client {client_id}",
-        "was_primary": was_primary,
-        "moved_tasks": len(active_tasks)
     }
 
 @router.get("/assistants")
@@ -1023,8 +847,6 @@ def get_all_clients(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     subscription_status: Optional[str] = None,
-    expires_within_days: Optional[int] = None,
-    search: Optional[str] = None,
     current_manager: models.User = Depends(get_current_manager),
     db: Session = Depends(get_db)
 ):
@@ -1046,24 +868,6 @@ def get_all_clients(
         elif subscription_status == "all":
             # Показать всех клиентов (включая без подписки)
             query = db.query(models.ClientProfile)
-    
-    # Фильтр по имени/телефону/email
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            models.ClientProfile.user.has(models.User.name.like(search_term)) |
-            models.ClientProfile.user.has(models.User.phone.like(search_term)) |
-            models.ClientProfile.email.like(search_term)
-        )
-    
-    # Фильтр по окончанию подписки в ближайшие дни
-    if expires_within_days is not None:
-        from datetime import timedelta
-        target_date = datetime.utcnow() + timedelta(days=expires_within_days)
-        query = query.filter(
-            models.Subscription.expires_at <= target_date,
-            models.Subscription.status == models.SubscriptionStatus.active
-        )
     
     total_count = query.count()
     clients = query.offset(skip).limit(limit).all()
@@ -1100,8 +904,7 @@ def get_all_clients(
                 "current_active_tasks": assignment.assistant.current_active_tasks,
                 "allowed_task_types": allowed_types,
                 "assignment_id": assignment.id,
-                "assigned_at": assignment.created_at.isoformat(),
-                "is_primary": assignment.is_primary
+                "assigned_at": assignment.created_at.isoformat()
             })
         
         client_data = {
@@ -1118,19 +921,13 @@ def get_all_clients(
         
         # Add subscription info
         if client.subscription:
-            expires_at = client.subscription.expires_at
-            days_until_expiry = None
-            if expires_at:
-                days_until_expiry = (expires_at - datetime.utcnow()).days
-            
             client_data["subscription"] = {
                 "id": client.subscription.id,
                 "plan": client.subscription.plan.value,
                 "status": client.subscription.status.value,
                 "started_at": client.subscription.started_at.isoformat(),
-                "expires_at": expires_at.isoformat() if expires_at else None,
-                "auto_renew": client.subscription.auto_renew,
-                "days_until_expiry": days_until_expiry
+                "expires_at": client.subscription.expires_at.isoformat() if client.subscription.expires_at else None,
+                "auto_renew": client.subscription.auto_renew
             }
         else:
             client_data["subscription"] = None

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface Manager {
   id: number;
@@ -14,68 +15,45 @@ interface ManagerStore {
   loading: boolean;
   login: (phone: string, password: string) => Promise<boolean>;
   logout: () => void;
-  refreshProfile: () => Promise<Manager | null>;
+  refreshProfile: () => Promise<void>;
 }
 
-// API base URL
-const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://api.rent-assistant.ru' : 'http://localhost:8000';
-
-export const useManagerStore = create<ManagerStore>((set, get) => ({
+export const useManagerStore = create<ManagerStore>()(
+  persist(
+    (set, get) => ({
       manager: null,
       token: null,
       isAuthenticated: false,
       loading: false,
 
       login: async (phone: string, password: string): Promise<boolean> => {
-    console.log('🔐 Starting manager login process...');
-    console.log('📞 Phone:', phone);
-    console.log('🌐 API URL:', `${API_BASE_URL}/api/v1/management/auth/login`);
-    
         set({ loading: true });
         try {
-      const requestBody = JSON.stringify({ phone, password });
-      console.log('📤 Request body:', requestBody);
-      
-      const response = await fetch(`${API_BASE_URL}/api/v1/management/auth/login`, {
+          const response = await fetch('/api/v1/management/auth/login', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-        body: requestBody,
+            body: JSON.stringify({ phone, password }),
           });
-
-      console.log('📥 Response status:', response.status);
-      console.log('📥 Response ok:', response.ok);
 
           if (response.ok) {
             const data = await response.json();
-        console.log('✅ Login successful, received data:', data);
-        
             const token = data.access_token;
             
-        // Сохраняем токен в localStorage перед обновлением профиля
+            set({ token, isAuthenticated: true });
             localStorage.setItem('manager_token', token);
-        set({ token }); // Устанавливаем токен в состояние
             
-        // Обновляем профиль и получаем данные менеджера
-        console.log('🔄 Fetching manager profile...');
-        const manager = await get().refreshProfile();
-        console.log('👤 Manager profile:', manager);
-        
-        set({ manager, isAuthenticated: true, loading: false });
+            // Get profile
+            await get().refreshProfile();
+            set({ loading: false });
             return true;
           } else {
-        const errorText = await response.text();
-        console.error('❌ Login failed. Response:', errorText);
             set({ loading: false });
             return false;
           }
         } catch (error) {
-      console.error('❌ Login error:', error);
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
+          console.error('Login error:', error);
           set({ loading: false });
           return false;
         }
@@ -90,46 +68,38 @@ export const useManagerStore = create<ManagerStore>((set, get) => ({
         });
       },
 
-  refreshProfile: async (): Promise<Manager | null> => {
+      refreshProfile: async () => {
         const token = get().token || localStorage.getItem('manager_token');
-    console.log('🔄 RefreshProfile called, token exists:', !!token);
-    
-    if (!token) return null;
+        if (!token) return;
 
         try {
-      console.log('📤 Fetching profile from:', `${API_BASE_URL}/api/v1/management/profile`);
-      
-      const response = await fetch(`${API_BASE_URL}/api/v1/management/profile`, {
+          const response = await fetch('/api/v1/management/profile', {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
           });
 
-      console.log('📥 Profile response status:', response.status);
-
           if (response.ok) {
             const manager = await response.json();
-        console.log('✅ Profile fetched successfully:', manager);
             set({ manager, isAuthenticated: true, token });
-        return manager;
           } else {
             // Token invalid
-        console.error('❌ Profile fetch failed, logging out');
             get().logout();
-        return null;
           }
         } catch (error) {
-      console.error('❌ Profile refresh error:', error);
+          console.error('Profile refresh error:', error);
           get().logout();
-      return null;
         }
       },
-}));
-
-// Initialize from localStorage on app load
-const token = localStorage.getItem('manager_token');
-if (token) {
-  console.log('🔑 Found token in localStorage, refreshing profile...');
-  useManagerStore.getState().refreshProfile();
-} 
+    }),
+    {
+      name: 'manager-storage',
+      partialize: (state) => ({
+        token: state.token,
+        manager: state.manager,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    }
+  )
+); 

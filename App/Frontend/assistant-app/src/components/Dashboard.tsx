@@ -49,9 +49,6 @@ import {
 import { useAssistantStore } from '../stores/useAssistantStore';
 import { assistantGradients } from '../theme';
 
-// API base URL
-const API_BASE_URL = 'https://api.rent-assistant.ru';
-
 // Styled components for enhanced design
 const StatsCard = styled(Card)(({ theme }) => ({
   background: assistantGradients.card,
@@ -170,7 +167,7 @@ const Dashboard: React.FC = () => {
   };
 
   const loadStats = async () => {
-    const response = await fetch(`${API_BASE_URL}/api/v1/assistants/dashboard/stats`, {
+    const response = await fetch('/api/v1/assistants/dashboard/stats', {
       headers: getAuthHeaders()
     });
     if (response.ok) {
@@ -180,7 +177,7 @@ const Dashboard: React.FC = () => {
   };
 
   const loadMarketplaceTasks = async () => {
-    const response = await fetch(`${API_BASE_URL}/api/v1/assistants/tasks/marketplace?limit=20`, {
+    const response = await fetch('/api/v1/assistants/tasks/marketplace?limit=20', {
       headers: getAuthHeaders()
     });
     if (response.ok) {
@@ -190,7 +187,7 @@ const Dashboard: React.FC = () => {
   };
 
   const loadAssignedTasks = async () => {
-    const response = await fetch(`${API_BASE_URL}/api/v1/assistants/tasks/assigned?limit=20`, {
+    const response = await fetch('/api/v1/assistants/tasks/assigned?limit=20', {
       headers: getAuthHeaders()
     });
     if (response.ok) {
@@ -209,7 +206,7 @@ const Dashboard: React.FC = () => {
 
   const claimTask = async (taskId: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/assistants/tasks/${taskId}/claim`, {
+      const response = await fetch(`/api/v1/assistants/tasks/${taskId}/claim`, {
         method: 'POST',
         headers: getAuthHeaders()
       });
@@ -233,7 +230,7 @@ const Dashboard: React.FC = () => {
     if (!selectedTaskId || !taskResult.trim()) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/assistants/tasks/${selectedTaskId}/complete`, {
+      const response = await fetch(`/api/v1/assistants/tasks/${selectedTaskId}/complete`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -265,7 +262,7 @@ const Dashboard: React.FC = () => {
     if (!selectedTaskId || !rejectReason.trim()) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/assistants/tasks/${selectedTaskId}/reject`, {
+      const response = await fetch(`/api/v1/assistants/tasks/${selectedTaskId}/reject`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({

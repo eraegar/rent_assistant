@@ -24,9 +24,6 @@ interface AssistantStore {
   updateStatus: (status: 'online' | 'offline') => Promise<boolean>;
 }
 
-// API base URL
-const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://api.rent-assistant.ru' : 'http://localhost:8000';
-
 export const useAssistantStore = create<AssistantStore>()(
   persist(
     (set, get) => ({
@@ -38,7 +35,7 @@ export const useAssistantStore = create<AssistantStore>()(
       login: async (phone: string, password: string): Promise<boolean> => {
         set({ loading: true });
         try {
-          const response = await fetch(`${API_BASE_URL}/api/v1/assistants/auth/login`, {
+          const response = await fetch('/api/v1/assistants/auth/login', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -82,7 +79,7 @@ export const useAssistantStore = create<AssistantStore>()(
         if (!token) return;
 
         try {
-          const response = await fetch(`${API_BASE_URL}/api/v1/assistants/profile`, {
+          const response = await fetch('/api/v1/assistants/profile', {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
@@ -107,7 +104,7 @@ export const useAssistantStore = create<AssistantStore>()(
         if (!token) return false;
 
         try {
-          const response = await fetch(`${API_BASE_URL}/api/v1/assistants/profile/status`, {
+          const response = await fetch('/api/v1/assistants/profile/status', {
             method: 'PUT',
             headers: {
               'Authorization': `Bearer ${token}`,
