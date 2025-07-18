@@ -171,9 +171,16 @@ const WelcomeScreen: React.FC = () => {
         <AuthCard>
           {/* Header */}
           <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" color="primary">
-              🎯 Ассистент в Аренду
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 2 }}>
+              <img 
+                src="/afrlogo.png" 
+                alt="AFR Logo" 
+                style={{ height: 48, marginRight: 16 }} 
+              />
+              <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" color="primary">
+                Ассистент в Аренду
+              </Typography>
+            </Box>
             <Typography variant="body1" color="text.secondary">
               Ваш персональный помощник для любых задач
             </Typography>

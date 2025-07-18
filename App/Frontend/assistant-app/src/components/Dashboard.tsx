@@ -319,9 +319,16 @@ const Dashboard: React.FC = () => {
       <Box>
         {/* Welcome Section */}
         <Box sx={{ mb: 4, textAlign: 'center' }}>
-          <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-            Добро пожаловать, {assistant?.name}! 🌟
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 2 }}>
+            <img 
+              src="/afrlogo.png" 
+              alt="AFR Logo" 
+              style={{ height: 40, marginRight: 16 }} 
+            />
+            <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
+              Добро пожаловать, {assistant?.name}! 🌟
+            </Typography>
+          </Box>
           <Typography variant="h6" color="text.secondary">
             Ваша рабочая панель ассистента
           </Typography>

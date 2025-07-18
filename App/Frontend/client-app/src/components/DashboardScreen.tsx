@@ -189,8 +189,13 @@ const DashboardScreen: React.FC = () => {
       {/* App Bar */}
       <AppBar position="static" sx={{ background: clientGradients.header }}>
         <Toolbar>
+          <img 
+            src="/afrlogo.png" 
+            alt="AFR Logo" 
+            style={{ height: 32, marginRight: 12 }} 
+          />
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, color: 'white', fontWeight: 600 }}>
-            🎯 Ассистент в Аренду
+            Ассистент в Аренду
           </Typography>
           
           <IconButton color="inherit" sx={{ mr: 2 }}>

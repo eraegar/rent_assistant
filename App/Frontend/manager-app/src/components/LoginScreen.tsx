@@ -108,9 +108,16 @@ const LoginScreen: React.FC = () => {
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <GradientPaper elevation={0}>
-        <Typography variant="h2" component="h1" gutterBottom align="center" sx={{ fontWeight: 700, color: 'white' }}>
-          📊 Панель управления
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 2 }}>
+          <img 
+            src="/afrlogo.png" 
+            alt="AFR Logo" 
+            style={{ height: 48, marginRight: 16 }} 
+          />
+          <Typography variant="h2" component="h1" gutterBottom align="center" sx={{ fontWeight: 700, color: 'white' }}>
+            Панель управления
+          </Typography>
+        </Box>
         <Typography variant="h5" align="center" sx={{ opacity: 0.9, fontWeight: 400, color: 'white' }}>
           Комплексная аналитика и управление бизнес-процессами
         </Typography>
