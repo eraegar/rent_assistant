@@ -1,5 +1,3 @@
-I'll add two new sections to the README.md file: "Security Practices" and "Community Support". Here's the updated version:
-
 ```markdown
 **Assistant For Rent**  
 ![Project logo](App/afrlogo.jpg)  
