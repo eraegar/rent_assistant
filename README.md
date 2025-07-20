@@ -314,6 +314,15 @@ All significant changes in [CHANGELOG.md](CHANGELOG.md):
 
 ---
 
+## Telegram Commands
+To access role-specific interfaces via the Telegram bot, send one of the following commands:
+
+менеджер — to access the manager interface
+
+ассистент — to access the assistant interface
+
+The bot will guide the user to the appropriate interface based on the command.
+
 ## Tech Stack
 **Frontend:**
 - React 18
