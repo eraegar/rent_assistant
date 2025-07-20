@@ -314,7 +314,7 @@ All significant changes in [CHANGELOG.md](CHANGELOG.md):
 
 ---
 
-## Telegram Commands
+## Telegram Commands (for customer it is important that the customer can switch to other interfaces directly from the Telegram bot)
 To access role-specific interfaces via the Telegram bot, send one of the following commands:
 
 менеджер — to access the manager interface
@@ -323,7 +323,7 @@ To access role-specific interfaces via the Telegram bot, send one of the followi
 
 The bot will guide the user to the appropriate interface based on the command.
 
-## Deployment on Customer's Server
+## Deployment on Customer's Server (for customer it is important that the customer can deploy the product on his server)
 To deploy the project on a customer's server:
 
 # 1. Clone the repository
