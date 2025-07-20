@@ -323,6 +323,22 @@ To access role-specific interfaces via the Telegram bot, send one of the followi
 
 The bot will guide the user to the appropriate interface based on the command.
 
+## Deployment on Customer's Server
+To deploy the project on a customer's server:
+
+# 1. Clone the repository
+git clone https://gitlab.com/your-project/rent-assistant.git
+cd rent-assistant
+
+# 2. Set environment variables
+cp .env.example .env
+# Update .env with production values
+
+# 3. Launch services
+docker-compose up -d --build
+Ensure the server has Docker and Docker Compose installed.
+For custom domain and HTTPS, configure Cloudflare Tunnel or use your own reverse proxy.
+
 ## Tech Stack
 **Frontend:**
 - React 18
