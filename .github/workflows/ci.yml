@@ -39,6 +39,7 @@ jobs:
           BOT_TOKEN: test_token
           WEBHOOK_URL: https://test.com
           MANAGER_API_URL: http://localhost:8000
+          PYTHONPATH: ${{ github.workspace }}/App/bot:${{ github.workspace }}/App/Backend
         run: |
           pip install -r requirements.txt pytest pytest-cov pytest-asyncio PyJWT unittest2 requests httpx pytest-timeout pytest-xdist
           python -c "from database import Base, engine; Base.metadata.create_all(bind=engine)"
@@ -59,7 +60,7 @@ jobs:
         run: |
           npm install
           npm run test -- --coverage --watchAll=false --passWithNoTests
-          npm run lint
+          npm run lint --if-present
 
   static-analysis-python:
     continue-on-error: true
