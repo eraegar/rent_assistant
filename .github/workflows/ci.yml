@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  POSTGRES_DB: test_db
+  POSTGRES_USER: test_user
+  POSTGRES_PASSWORD: test_password
+  DOCKER_DRIVER: overlay2
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps and run tests
+        working-directory: App/Backend
+        env:
+          DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432/${{ env.POSTGRES_DB }}
+          BOT_TOKEN: test_token
+          WEBHOOK_URL: https://test.com
+          MANAGER_API_URL: http://localhost:8000
+        run: |
+          pip install -r requirements.txt pytest pytest-cov pytest-asyncio PyJWT unittest2 requests httpx pytest-timeout pytest-xdist
+          python -c "from database import Base, engine; Base.metadata.create_all(bind=engine)"
+          python -m pytest ../../Quality -v --cov=. --cov-report=xml --junitxml=junit.xml
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [client-app, manager-app, assistant-app]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install, test and lint
+        working-directory: App/Frontend/${{ matrix.app }}
+        run: |
+          npm ci
+          npm run test -- --coverage --watchAll=false --passWithNoTests
+          npm run lint
+
+  static-analysis-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lint, type-check, security
+        working-directory: App/Backend
+        run: |
+          pip install black flake8 mypy bandit safety
+          black --check --diff .
+          flake8 .
+          mypy .
+          bandit -r . -ll
+          safety check --full-report
+
+  build-backend:
+    runs-on: ubuntu-latest
+    needs: [test-backend, static-analysis-python]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build
+        working-directory: App/Backend
+        run: |
+          pip install -r requirements.txt
+          python -m compileall .
+          echo "Backend build successful"
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Start backend and frontend
+        env:
+          DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432/${{ env.POSTGRES_DB }}
+        run: |
+          cd App/Backend
+          pip install -r requirements.txt
+          python init_db.py
+          nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/backend.log 2>&1 &
+          cd ../Frontend/client-app
+          npm ci
+          nohup npm start > /tmp/frontend.log 2>&1 &
+          npx wait-on -t 30000 http://localhost:8000 http://localhost:3000
+      - name: Cypress run
+        working-directory: App/Frontend/client-app
+        run: npx cypress run
+
+  deploy-backend:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [build-backend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SSH client
+        run: sudo apt-get update && sudo apt-get install -y openssh-client rsync
+      - name: Setup SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          PRODUCTION_SERVER: ${{ secrets.PRODUCTION_SERVER }}
+        run: |
+          eval "$(ssh-agent -s)"
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "$SSH_PRIVATE_KEY" | ssh-add -
+          ssh-keyscan -H $PRODUCTION_SERVER >> ~/.ssh/known_hosts
+      - name: Deploy backend and bot
+        env:
+          PRODUCTION_SERVER: ${{ secrets.PRODUCTION_SERVER }}
+        run: |
+          rsync -avz --delete App/Backend/ root@$PRODUCTION_SERVER:/root/project/App/Backend
+          rsync -avz --delete App/bot/ root@$PRODUCTION_SERVER:/root/project/App/bot
+          ssh root@$PRODUCTION_SERVER 'pkill -f "uvicorn main:app" || true; pkill -f "python App/bot/bot1_simple.py" || true; sleep 2; cd /root/project/App/Backend && pip install -r requirements.txt && nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /root/project/nohup.out 2>&1 &; cd /root/project && nohup python -u App/bot/bot1_simple.py > /root/project/bot_nohup.out 2>&1 &'
+
+
