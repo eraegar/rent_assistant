@@ -112,7 +112,7 @@ jobs:
 
   deploy-backend:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: false  # Temporarily disabled by request
     needs: [build-backend]
     steps:
       - uses: actions/checkout@v4
