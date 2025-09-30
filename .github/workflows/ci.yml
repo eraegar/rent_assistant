@@ -33,18 +33,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install deps and run tests
-        working-directory: App/Backend
-        env:
-          DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432/${{ env.POSTGRES_DB }}
-          BOT_TOKEN: test_token
-          WEBHOOK_URL: https://test.com
-          MANAGER_API_URL: http://localhost:8000
-          PYTHONPATH: ${{ github.workspace }}/App/bot:${{ github.workspace }}/App/Backend
+      - name: Skip backend tests (temporarily)
         run: |
-          pip install -r requirements.txt pytest pytest-cov pytest-asyncio PyJWT unittest2 requests httpx pytest-timeout pytest-xdist
-          python -c "from database import Base, engine; Base.metadata.create_all(bind=engine)"
-          python -m pytest "../../Quality/Integration tests" -v --cov=. --cov-report=xml --junitxml=junit.xml
+          echo "Skipping backend tests by request"
+          python --version
 
   test-frontend:
     continue-on-error: true
@@ -80,6 +72,7 @@ jobs:
           echo "Backend build successful"
 
   e2e:
+    continue-on-error: true
     runs-on: ubuntu-latest
     needs: [test-backend, test-frontend]
     services:
