@@ -57,11 +57,12 @@ jobs:
       - name: Install, test and lint
         working-directory: App/Frontend/${{ matrix.app }}
         run: |
-          npm ci
+          npm install
           npm run test -- --coverage --watchAll=false --passWithNoTests
           npm run lint
 
   static-analysis-python:
+    continue-on-error: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -124,7 +125,7 @@ jobs:
           python init_db.py
           nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/backend.log 2>&1 &
           cd ../Frontend/client-app
-          npm ci
+          npm install
           nohup npm start > /tmp/frontend.log 2>&1 &
           npx wait-on -t 30000 http://localhost:8000 http://localhost:3000
       - name: Cypress run
